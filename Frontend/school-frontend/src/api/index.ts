@@ -1,0 +1,12 @@
+export { default as apiClient } from './client';
+export { authService } from './authService';
+export { studentService } from './studentService';
+export { teacherService } from './teacherService';
+export { academicService } from './academicService';
+export { attendanceService } from './attendanceService';
+export { examService } from './examService';
+export { feeService } from './feeService';
+export { timetableService } from './timetableService';
+export { announcementService } from './announcementService';
+export { messageService } from './messageService';
+export { adminService } from './adminService';

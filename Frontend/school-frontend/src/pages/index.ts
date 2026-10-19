@@ -1,0 +1,12 @@
+export { LoginPage } from './auth/LoginPage';
+export { Dashboard } from './Dashboard';
+export { Students } from './Students';
+export { Teachers } from './Teachers';
+export { Academics } from './Academics';
+export { Timetable } from './Timetable';
+export { Attendance } from './Attendance';
+export { Examinations } from './Examinations';
+export { Fees } from './Fees';
+export { Announcements } from './Announcements';
+export { Messages } from './Messages';
+export { ActivityLogs } from './ActivityLogs';
