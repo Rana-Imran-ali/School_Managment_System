@@ -46,7 +46,7 @@ class TimetableController extends ApiController
                 201
             );
         } catch (\InvalidArgumentException $e) {
-            return $this->errorResponse($e->getMessage(), 422);
+            return $this->errorResponse($e->getMessage(), null, 422);
         }
     }
 

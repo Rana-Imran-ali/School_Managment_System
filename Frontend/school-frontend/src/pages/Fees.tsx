@@ -254,12 +254,12 @@ export const Fees: React.FC = () => {
                         </code>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 700 }}>{student?.user?.name || 'Student'}</div>
+                        <div style={{ fontWeight: 700 }}>{(p as any).student_name || student?.user?.name || 'Student'}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {student?.admission_number}
+                          {(p as any).admission_number || student?.admission_number}
                         </div>
                       </td>
-                      <td>{feeType?.name || 'Tuition Fee'}</td>
+                      <td>{(p as any).fee_type_name || feeType?.name || 'Tuition Fee'}</td>
                       <td>
                         <strong style={{ fontSize: '0.95rem' }}>${p.amount_paid.toLocaleString()}</strong>
                       </td>

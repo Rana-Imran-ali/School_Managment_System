@@ -41,6 +41,11 @@ class Timetable extends Model
         return $this->belongsTo(TeacherProfile::class);
     }
 
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id');
+    }
+
     public function period(): BelongsTo
     {
         return $this->belongsTo(Period::class);

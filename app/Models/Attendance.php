@@ -33,6 +33,11 @@ class Attendance extends Model
         return $this->belongsTo(StudentProfile::class, 'student_profile_id');
     }
 
+    public function studentProfile(): BelongsTo
+    {
+        return $this->belongsTo(StudentProfile::class, 'student_profile_id');
+    }
+
     public function schoolClass(): BelongsTo
     {
         return $this->belongsTo(SchoolClass::class);

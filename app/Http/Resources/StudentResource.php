@@ -32,6 +32,10 @@ class StudentResource extends JsonResource
                 'id'   => $this->currentClass->id,
                 'name' => $this->currentClass->name,
             ]),
+            'school_class' => $this->whenLoaded('currentClass', fn() => [
+                'id'   => $this->currentClass->id,
+                'name' => $this->currentClass->name,
+            ]),
             'section' => $this->whenLoaded('currentSection', fn() => [
                 'id'   => $this->currentSection->id,
                 'name' => $this->currentSection->name,

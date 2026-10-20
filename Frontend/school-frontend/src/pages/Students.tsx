@@ -49,9 +49,9 @@ export const Students: React.FC = () => {
             admission_date: item.admission_date || '2026-09-01',
             blood_group: item.blood_group,
             religion: item.religion,
-            current_class_id: item.school_class?.id,
+            current_class_id: (item.school_class || item.class)?.id,
             current_section_id: item.section?.id,
-            school_class: item.school_class,
+            school_class: item.school_class || item.class,
             section: item.section,
             user: {
               id: item.user?.id || item.id,

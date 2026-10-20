@@ -89,7 +89,11 @@ export const Examinations: React.FC = () => {
   const [selectedReportStudentId, setSelectedReportStudentId] = useState(1);
 
   const calculateGrade = (mark: number): string => {
-    const match = grades.find((g) => mark >= g.min_mark && mark <= g.max_mark);
+    const match = grades.find((g: any) => {
+      const min = g.min_mark ?? g.mark_from ?? 0;
+      const max = g.max_mark ?? g.mark_to ?? 100;
+      return mark >= min && mark <= max;
+    });
     return match ? match.name : 'N/A';
   };
 
@@ -265,10 +269,10 @@ export const Examinations: React.FC = () => {
                       {g.name}
                     </span>
                   </td>
-                  <td><strong>{g.min_mark}%</strong></td>
-                  <td><strong>{g.max_mark}%</strong></td>
-                  <td><code style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{g.grade_point.toFixed(1)}</code></td>
-                  <td style={{ color: 'var(--text-muted)' }}>{g.description}</td>
+                  <td><strong>{g.min_mark ?? (g as any).mark_from ?? 0}%</strong></td>
+                  <td><strong>{g.max_mark ?? (g as any).mark_to ?? 100}%</strong></td>
+                  <td><code style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{Number((g.grade_point ?? (g as any).point) ?? 0).toFixed(1)}</code></td>
+                  <td style={{ color: 'var(--text-muted)' }}>{g.description ?? (g as any).remarks ?? ''}</td>
                 </tr>
               ))}
             </tbody>

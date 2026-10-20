@@ -37,6 +37,11 @@ class FeePayment extends Model
         return $this->belongsTo(StudentProfile::class, 'student_profile_id');
     }
 
+    public function studentProfile(): BelongsTo
+    {
+        return $this->belongsTo(StudentProfile::class, 'student_profile_id');
+    }
+
     public function feeStructure(): BelongsTo
     {
         return $this->belongsTo(FeeStructure::class);

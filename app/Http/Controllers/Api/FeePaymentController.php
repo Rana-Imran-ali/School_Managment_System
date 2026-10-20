@@ -106,4 +106,30 @@ class FeePaymentController extends ApiController
 
         return $this->successResponse(new FeePaymentResource($payment), 'Receipt details retrieved.');
     }
+
+    /**
+     * Retrieve the comprehensive fee ledger and balance for a student.
+     */
+    public function studentLedger(int $studentId, Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // IDOR Protection: Students see only their ledger; Parents only their child's
+        if ($user->role === 'student') {
+            if (!$user->studentProfile || $user->studentProfile->id !== $studentId) {
+                return $this->errorResponse('Access denied. You can only view your own fee ledger.', null, 403);
+            }
+        } elseif ($user->role === 'parent') {
+            $isChild = \App\Models\StudentProfile::where('id', $studentId)
+                ->where('parent_id', $user->parentProfile?->id)
+                ->exists();
+            if (!$isChild) {
+                return $this->errorResponse('Access denied. You can only view your registered child fee ledger.', null, 403);
+            }
+        }
+
+        $ledger = $this->feeService->getStudentFeeLedger($studentId);
+
+        return $this->successResponse($ledger, 'Student fee ledger retrieved.');
+    }
 }

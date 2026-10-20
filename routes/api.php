@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/students/{id}/report-card', [ExamResultController::class, 'studentReportCard']);
     Route::get('/fee-payments', [FeePaymentController::class, 'index']);
     Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
+    Route::get('/students/{id}/fee-ledger', [FeePaymentController::class, 'studentLedger']);
     Route::get('/announcements', [AnnouncementController::class, 'index']);
 
     // Direct Messaging (Available to all authenticated users)

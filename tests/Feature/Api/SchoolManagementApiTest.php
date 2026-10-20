@@ -164,4 +164,75 @@ class SchoolManagementApiTest extends TestCase
                      ],
                  ]);
     }
+
+    public function test_can_list_attendances(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/attendances');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('success', true);
+    }
+
+    public function test_can_list_grades_with_frontend_compatible_aliases(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/grades');
+
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'data' => [
+                         '*' => ['id', 'name', 'point', 'grade_point', 'mark_from', 'min_mark', 'mark_to', 'max_mark', 'remarks', 'description'],
+                     ],
+                 ]);
+    }
+
+    public function test_can_list_fee_payments(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/fee-payments');
+
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'data' => [
+                         'items',
+                         'pagination',
+                     ],
+                 ]);
+    }
+
+    public function test_can_list_timetables(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/timetables');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('success', true);
+    }
+
+    public function test_can_retrieve_student_fee_ledger(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/students/1/fee-ledger');
+
+        $response->assertStatus(200)
+                 ->assertJsonStructure([
+                     'success',
+                     'data' => [
+                         'student',
+                         'fee_structures',
+                         'payments',
+                         'total_invoiced',
+                         'total_paid',
+                         'outstanding_due',
+                     ],
+                 ]);
+    }
 }

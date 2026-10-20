@@ -68,10 +68,9 @@ export const Timetable: React.FC = () => {
     { key: 'friday', label: 'Friday' },
   ];
 
-  const handleSaveSlot = (e: React.FormEvent) => {
+  const handleSaveSlot = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newSlot: TimetableSlot = {
-      id: Date.now(),
+    const payload = {
       school_class_id: selectedClass,
       section_id: selectedSection,
       period_id: Number(slotForm.period_id),
@@ -81,23 +80,51 @@ export const Timetable: React.FC = () => {
       room_number: slotForm.room_number,
     };
 
-    // Filter out previous slot at the same time if any
-    const updated = [
-      ...timetable.filter(
-        (s) =>
-          !(
-            s.school_class_id === selectedClass &&
-            s.section_id === selectedSection &&
-            s.day_of_week === slotForm.day_of_week &&
-            s.period_id === Number(slotForm.period_id)
-          )
-      ),
-      newSlot,
-    ];
+    try {
+      const serverSlot = await timetableService.createTimetable(payload);
+      const newSlot: TimetableSlot = serverSlot || {
+        id: Date.now(),
+        ...payload,
+      };
 
-    setTimetable(updated);
-    saveStoredData('timetable_data', updated);
-    setIsSlotModalOpen(false);
+      const updated = [
+        ...timetable.filter(
+          (s) =>
+            !(
+              s.school_class_id === selectedClass &&
+              s.section_id === selectedSection &&
+              s.day_of_week === slotForm.day_of_week &&
+              s.period_id === Number(slotForm.period_id)
+            )
+        ),
+        newSlot,
+      ];
+
+      setTimetable(updated);
+      saveStoredData('timetable_data', updated);
+      setIsSlotModalOpen(false);
+    } catch (err: any) {
+      console.warn('Backend timetable save error, saving locally:', err);
+      const newSlot: TimetableSlot = {
+        id: Date.now(),
+        ...payload,
+      };
+      const updated = [
+        ...timetable.filter(
+          (s) =>
+            !(
+              s.school_class_id === selectedClass &&
+              s.section_id === selectedSection &&
+              s.day_of_week === slotForm.day_of_week &&
+              s.period_id === Number(slotForm.period_id)
+            )
+        ),
+        newSlot,
+      ];
+      setTimetable(updated);
+      saveStoredData('timetable_data', updated);
+      setIsSlotModalOpen(false);
+    }
   };
 
   const handlePrint = () => {
