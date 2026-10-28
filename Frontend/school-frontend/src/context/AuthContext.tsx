@@ -149,9 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { user } = await authService.register(payload);
       if (user) {
-        const mapped = mapApiUser(user);
-        setCurrentUser(mapped);
-        setIsAuthenticated(true);
+        // Account registered. Do NOT auto-login — user must sign in with credentials
         return { success: true };
       }
       return { success: false, error: 'Registration failed.' };

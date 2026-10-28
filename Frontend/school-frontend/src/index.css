@@ -1141,71 +1141,7 @@ input, select, textarea {
   to { transform: rotate(360deg); }
 }
 
-/* Demo section */
-.login-demo-section {
-  margin-top: 2rem;
-}
-.login-demo-divider {
-  display: flex; align-items: center; gap: 0.75rem;
-  margin-bottom: 1.2rem;
-}
-.login-demo-divider::before,
-.login-demo-divider::after {
-  content: '';
-  flex: 1; height: 1px;
-  background: var(--border-subtle);
-}
-.login-demo-divider span {
-  font-size: 0.72rem; font-weight: 600;
-  color: var(--text-faint);
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 
-.login-demo-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.65rem;
-}
-.login-demo-card {
-  display: flex; align-items: center; gap: 0.65rem;
-  padding: 0.65rem 0.85rem;
-  background: var(--bg-glass-strong);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: var(--font-sans);
-  text-align: left;
-}
-.login-demo-card:hover:not(:disabled) {
-  border-color: var(--demo-accent, var(--primary));
-  background: color-mix(in srgb, var(--demo-accent, var(--primary)) 8%, transparent);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.login-demo-card:disabled {
-  opacity: 0.5; cursor: not-allowed;
-}
-.login-demo-icon {
-  width: 34px; height: 34px;
-  border-radius: var(--radius-sm);
-  display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--demo-accent, var(--primary)) 15%, transparent);
-  color: var(--demo-accent, var(--primary));
-  flex-shrink: 0;
-}
-.login-demo-info {
-  display: flex; flex-direction: column;
-}
-.login-demo-role {
-  font-size: 0.78rem; font-weight: 700;
-  color: var(--text-main);
-}
-.login-demo-desc {
-  font-size: 0.68rem; color: var(--text-faint);
-}
 
 /* ================================================================== */
 /*  AUTH LOADING SCREEN                                                */
@@ -1316,7 +1252,5 @@ input, select, textarea {
   .login-form-panel {
     padding: 2rem 1.5rem;
   }
-  .login-demo-grid {
-    grid-template-columns: 1fr;
-  }
+
 }

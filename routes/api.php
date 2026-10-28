@@ -27,9 +27,10 @@ use Illuminate\Support\Facades\Route;
 /*
 |--------------------------------------------------------------------------
 | Public Authentication Routes
+| throttle:10,1 = max 10 requests per minute per IP (FLAW 2 fix)
 |--------------------------------------------------------------------------
 */
-Route::prefix('auth')->group(function () {
+Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
 });
@@ -37,9 +38,10 @@ Route::prefix('auth')->group(function () {
 /*
 |--------------------------------------------------------------------------
 | Protected Endpoints (Requires Sanctum Bearer Token)
+| check.status ensures suspended users are blocked even with a valid token
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     // Current user sessions
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);

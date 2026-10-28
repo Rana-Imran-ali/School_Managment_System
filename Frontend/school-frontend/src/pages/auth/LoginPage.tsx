@@ -1,7 +1,6 @@
 /**
  * LoginPage – Dual Authentication view (Sign In & Sign Up / Register).
- * Supports self-registration for Students, Teachers, and Parents to set credentials.
- * Also includes 1-click Quick Access Demo Accounts for rapid evaluation.
+ * Supports self-registration and credential-based authentication.
  */
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -14,7 +13,6 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  Shield,
   GraduationCap,
   Users,
   UserCheck,
@@ -23,42 +21,6 @@ import {
   Phone,
   CheckCircle2,
 } from 'lucide-react';
-
-/** Pre-seeded demo accounts for quick testing */
-const DEMO_ACCOUNTS = [
-  {
-    role: 'admin' as const,
-    label: 'Administrator',
-    email: 'admin@educore.edu',
-    icon: <Shield size={18} />,
-    color: '#6366f1',
-    desc: 'Full system control',
-  },
-  {
-    role: 'teacher' as const,
-    label: 'Teacher',
-    email: 'sarah.jenkins@educore.edu',
-    icon: <GraduationCap size={18} />,
-    color: '#06b6d4',
-    desc: 'Class & grade management',
-  },
-  {
-    role: 'student' as const,
-    label: 'Student',
-    email: 'ethan.hunt@student.educore.edu',
-    icon: <Users size={18} />,
-    color: '#10b981',
-    desc: 'View grades & timetable',
-  },
-  {
-    role: 'parent' as const,
-    label: 'Parent',
-    email: 'robert.hunt@gmail.com',
-    icon: <UserCheck size={18} />,
-    color: '#f59e0b',
-    desc: 'Monitor child progress',
-  },
-];
 
 type AuthMode = 'login' | 'register';
 type RegisterRole = 'student' | 'teacher' | 'parent';
@@ -154,29 +116,18 @@ export const LoginPage: React.FC = () => {
     });
 
     if (res.success) {
-      setSuccessMsg(`Account created successfully! Welcome to EduCore.`);
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 500);
+      // Pre-fill registered email for convenience, clear passwords, and switch to Sign In
+      setEmail(regEmail.trim());
+      setPassword('');
+      setRegName('');
+      setRegEmail('');
+      setRegPhone('');
+      setRegPassword('');
+      setRegConfirmPassword('');
+      setSuccessMsg('Account registered successfully! Please sign in using your email and password.');
+      setAuthMode('login');
     } else {
       setError(res.error || 'Registration failed. Email may already be in use.');
-    }
-  };
-
-  /* ------------------------------------------------------------------ */
-  /*  Handle Demo Quick Access                                          */
-  /* ------------------------------------------------------------------ */
-  const handleDemoLogin = async (demoEmail: string) => {
-    setError('');
-    setSuccessMsg('');
-    setEmail(demoEmail);
-    setPassword('password123');
-
-    const success = await loginWithEmail(demoEmail, 'password123');
-    if (success) {
-      navigate(from, { replace: true });
-    } else {
-      setError('Demo login failed. Make sure the backend server is running.');
     }
   };
 
@@ -379,31 +330,6 @@ export const LoginPage: React.FC = () => {
                   </button>
                 </form>
 
-                {/* Quick Access Demo Accounts */}
-                <div className="login-demo-section">
-                  <div className="login-demo-divider">
-                    <span>Quick Access — Pre-seeded Accounts</span>
-                  </div>
-
-                  <div className="login-demo-grid">
-                    {DEMO_ACCOUNTS.map((account) => (
-                      <button
-                        key={account.role}
-                        className="login-demo-card"
-                        id={`demo-login-${account.role}`}
-                        onClick={() => handleDemoLogin(account.email)}
-                        disabled={isAuthenticating}
-                        style={{ '--demo-accent': account.color } as React.CSSProperties}
-                      >
-                        <div className="login-demo-icon">{account.icon}</div>
-                        <div className="login-demo-info">
-                          <span className="login-demo-role">{account.label}</span>
-                          <span className="login-demo-desc">{account.desc}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </>
             ) : (
               /* ========================================================= */

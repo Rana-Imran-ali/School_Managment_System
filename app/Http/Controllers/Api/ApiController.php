@@ -64,13 +64,14 @@ abstract class ApiController extends Controller
 
     /**
      * Record an audit activity log in the database.
+     * FLAW 13 fix: accepts an explicit $userId so log is never null during login
+     * (before the Sanctum guard resolves the user).
      */
-    protected function logActivity(string $activity, ?string $module = null): void
+    protected function logActivity(string $activity, ?string $module = null, ?int $userId = null): void
     {
         try {
-            $user = Auth::user();
             ActivityLog::create([
-                'user_id'    => $user?->id,
+                'user_id'    => $userId ?? Auth::id(),
                 'activity'   => $activity,
                 'module'     => $module,
                 'ip_address' => request()->ip(),

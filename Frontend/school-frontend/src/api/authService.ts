@@ -2,7 +2,7 @@ import apiClient from './client';
 
 export interface LoginCredentials {
   email: string;
-  password?: string;
+  password: string;
 }
 
 export interface UserResponse {
@@ -28,7 +28,7 @@ export const authService = {
   async login(credentials: LoginCredentials) {
     const payload = {
       email: credentials.email,
-      password: credentials.password || 'password123',
+      password: credentials.password,
     };
     const response = await apiClient.post('/auth/login', payload);
     const { token, user } = response.data.data;
@@ -41,12 +41,8 @@ export const authService = {
 
   async register(payload: RegisterPayload) {
     const response = await apiClient.post('/auth/register', payload);
-    const { token, user } = response.data.data;
-    if (token) {
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('active_user', JSON.stringify(user));
-    }
-    return { token, user };
+    const user = response.data.data?.user || response.data.data;
+    return { user };
   },
 
   async getCurrentUser() {

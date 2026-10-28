@@ -18,8 +18,7 @@ class RoleMiddleware
         if (!$user || !in_array($user->role, $roles)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Access denied. You do not possess the required role permissions.',
-                'required_roles' => $roles,
+                'message' => 'Access denied.',
             ], 403);
         }
 
