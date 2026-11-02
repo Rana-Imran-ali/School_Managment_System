@@ -1,0 +1,50 @@
+name: Laravel CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ":memory:"
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+
+    steps:
+      # Step 1: Download project code from GitHub
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install PHP 8.2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_sqlite, sqlite3
+          coverage: none
+
+      # Step 3: Copy Laravel environment configuration
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      # Step 4: Install Composer dependencies
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      # Step 5: Generate Laravel application key
+      - name: Generate application key
+        run: php artisan key:generate
+
+      # Step 6: Run Laravel automated tests
+      - name: Run tests
+        run: php artisan test
