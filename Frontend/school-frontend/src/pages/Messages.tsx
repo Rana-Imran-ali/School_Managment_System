@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Wifi, WifiOff } from 'lucide-react';
 import type { Message } from '../types';
 import { initialMessages, initialUsers, getStoredData, saveStoredData } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { messageService } from '../api/messageService';
+import echo from '../echo';
 
 export const Messages: React.FC = () => {
   const { currentUser } = useAuth();
@@ -13,13 +14,79 @@ export const Messages: React.FC = () => {
 
   const [activeContactId, setActiveContactId] = useState<number>(2); // Dr. Sarah Jenkins
   const [replyText, setReplyText] = useState('');
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
 
   const currentUserId = Number(currentUser.id) || 1;
   const otherUsers = initialUsers.filter((u) => u.id !== currentUserId);
   const activeContact = initialUsers.find((u) => u.id === activeContactId) || otherUsers[0];
 
-  // Fetch live conversation thread from backend
-  React.useEffect(() => {
+  // Track WebSocket connection status
+  useEffect(() => {
+    try {
+      const pusher = (echo as any).connector?.pusher;
+      if (pusher?.connection) {
+        if (pusher.connection.state === 'connected') {
+          setIsWsConnected(true);
+        }
+        const onConnected = () => setIsWsConnected(true);
+        const onDisconnected = () => setIsWsConnected(false);
+
+        pusher.connection.bind('connected', onConnected);
+        pusher.connection.bind('disconnected', onDisconnected);
+        pusher.connection.bind('unavailable', onDisconnected);
+        pusher.connection.bind('failed', onDisconnected);
+
+        return () => {
+          pusher.connection.unbind('connected', onConnected);
+          pusher.connection.unbind('disconnected', onDisconnected);
+          pusher.connection.unbind('unavailable', onDisconnected);
+          pusher.connection.unbind('failed', onDisconnected);
+        };
+      }
+    } catch (err) {
+      console.warn('Could not bind Echo connection status:', err);
+    }
+  }, []);
+
+  // Listen for real-time messages on user's private channel
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const channelName = `users.${currentUserId}`;
+    const channel = echo.private(channelName);
+
+    const handleIncomingMessage = (event: any) => {
+      const incoming: Message = {
+        id: event.id || Date.now(),
+        sender_id: Number(event.sender_id),
+        receiver_id: Number(event.receiver_id),
+        body: event.message || event.body || '',
+        is_read: Boolean(event.is_read),
+        created_at: event.created_at ? new Date(event.created_at).toLocaleString() : 'Just now',
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incoming.id)) {
+          return prev;
+        }
+        const updated = [...prev, incoming];
+        saveStoredData('messages_list', updated);
+        return updated;
+      });
+    };
+
+    channel.listen('.MessageSent', handleIncomingMessage);
+    channel.listen('MessageSent', handleIncomingMessage);
+
+    return () => {
+      channel.stopListening('.MessageSent', handleIncomingMessage);
+      channel.stopListening('MessageSent', handleIncomingMessage);
+      echo.leave(channelName);
+    };
+  }, [currentUserId]);
+
+  // Fetch live conversation thread from backend on contact change
+  useEffect(() => {
     let isMounted = true;
     messageService
       .getConversation(activeContactId)
@@ -31,7 +98,7 @@ export const Messages: React.FC = () => {
             receiver_id: m.receiver_id,
             body: m.message,
             is_read: m.is_read,
-            created_at: m.created_at || 'Just now',
+            created_at: m.created_at ? new Date(m.created_at).toLocaleString() : 'Just now',
           }));
           setMessages((prev) => {
             const others = prev.filter(
@@ -65,38 +132,75 @@ export const Messages: React.FC = () => {
     e.preventDefault();
     if (!replyText.trim()) return;
 
+    const messageText = replyText.trim();
+    setReplyText('');
+
     try {
-      await messageService.sendMessage({
+      const response = await messageService.sendMessage({
         receiver_id: Number(activeContact.id),
-        message: replyText.trim(),
+        message: messageText,
+      });
+
+      const newId = response?.id || Date.now();
+      const newMessage: Message = {
+        id: newId,
+        sender_id: currentUserId,
+        receiver_id: activeContact.id,
+        body: messageText,
+        is_read: false,
+        created_at: response?.created_at ? new Date(response.created_at).toLocaleString() : 'Just now',
+      };
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newId)) return prev;
+        const updated = [...prev, newMessage];
+        saveStoredData('messages_list', updated);
+        return updated;
       });
     } catch (err) {
       console.warn('Backend message dispatch error, storing locally:', err);
+      const fallbackMessage: Message = {
+        id: Date.now(),
+        sender_id: currentUserId,
+        receiver_id: activeContact.id,
+        body: messageText,
+        is_read: false,
+        created_at: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      };
+      setMessages((prev) => {
+        const updated = [...prev, fallbackMessage];
+        saveStoredData('messages_list', updated);
+        return updated;
+      });
     }
-
-    const newMessage: Message = {
-      id: Date.now(),
-      sender_id: currentUserId,
-      receiver_id: activeContact.id,
-      body: replyText.trim(),
-      is_read: false,
-      created_at: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    };
-
-    const updated = [...messages, newMessage];
-    setMessages(updated);
-    saveStoredData('messages_list', updated);
-    setReplyText('');
   };
 
   return (
     <div id="messages-page">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Internal Communications & Direct Inquiries</h1>
           <p className="page-subtitle">
             Secure direct messaging channel between school administrators, faculty instructors, and parents.
           </p>
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            padding: '0.35rem 0.75rem',
+            borderRadius: '9999px',
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            background: isWsConnected ? 'rgba(16, 185, 129, 0.12)' : 'rgba(100, 116, 139, 0.12)',
+            color: isWsConnected ? '#10b981' : '#64748b',
+            border: `1px solid ${isWsConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(100, 116, 139, 0.2)'}`,
+          }}
+          title={isWsConnected ? 'WebSocket live connection active' : 'WebSocket connecting or standby'}
+        >
+          {isWsConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
+          <span>{isWsConnected ? 'Live Real-time' : 'Reverb Standby'}</span>
         </div>
       </div>
 
@@ -266,3 +370,4 @@ export const Messages: React.FC = () => {
     </div>
   );
 };
+export default Messages;

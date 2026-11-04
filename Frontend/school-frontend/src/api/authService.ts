@@ -45,6 +45,16 @@ export const authService = {
     return { user };
   },
 
+  async setPassword(data: { token: string; email: string; password: string; password_confirmation: string }) {
+    const response = await apiClient.post('/auth/set-password', data);
+    const { token, user } = response.data.data;
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('active_user', JSON.stringify(user));
+    }
+    return { token, user };
+  },
+
   async getCurrentUser() {
     const response = await apiClient.get('/auth/me');
     return response.data.data;

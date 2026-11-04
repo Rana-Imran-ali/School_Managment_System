@@ -1,4 +1,5 @@
 export { LoginPage } from './auth/LoginPage';
+export { SetPasswordPage } from './auth/SetPasswordPage';
 export { Dashboard } from './Dashboard';
 export { Students } from './Students';
 export { Teachers } from './Teachers';
@@ -10,3 +11,4 @@ export { Fees } from './Fees';
 export { Announcements } from './Announcements';
 export { Messages } from './Messages';
 export { ActivityLogs } from './ActivityLogs';
+export { Parents } from './Parents';

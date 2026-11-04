@@ -25,9 +25,11 @@ import { ProtectedRoute, GuestRoute } from './components';
 // Pages
 import {
   LoginPage,
+  SetPasswordPage,
   Dashboard,
   Students,
   Teachers,
+  Parents,
   Academics,
   Timetable,
   Attendance,
@@ -53,6 +55,9 @@ export function App() {
             }
           />
 
+          {/* Public route – Set Password */}
+          <Route path="/set-password" element={<SetPasswordPage />} />
+
           {/* Protected routes – require authentication */}
           <Route
             path="/"
@@ -64,6 +69,7 @@ export function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="students" element={<Students />} />
+            <Route path="parents" element={<Parents />} />
             <Route path="teachers" element={<Teachers />} />
             <Route path="academics" element={<Academics />} />
             <Route path="timetable" element={<Timetable />} />

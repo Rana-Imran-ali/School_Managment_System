@@ -226,3 +226,17 @@ export interface ActivityLog {
   created_at: string;
   details?: string;
 }
+
+export interface AppNotification {
+  id: number;
+  user_id: number;
+  type: 'message' | 'announcement' | 'attendance' | 'exam' | 'fee' | 'general';
+  title: string;
+  message: string;
+  link?: string;
+  data?: Record<string, any>;
+  is_read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+

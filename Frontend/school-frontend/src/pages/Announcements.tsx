@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { Plus, Calendar, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Calendar, User, Radio } from 'lucide-react';
 import type { Announcement } from '../types';
 import { initialAnnouncements, getStoredData, saveStoredData } from '../data/mockData';
 import { Modal } from '../components/Modal';
 import { announcementService } from '../api/announcementService';
 import { useAuth } from '../context/AuthContext';
+import echo from '../echo';
 
 export const Announcements: React.FC = () => {
   const { currentRole } = useAuth();
@@ -16,7 +17,7 @@ export const Announcements: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Load live announcements from backend
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
     const params = audienceFilter !== 'all' ? { audience: audienceFilter } : {};
     announcementService
@@ -45,6 +46,39 @@ export const Announcements: React.FC = () => {
     };
   }, [audienceFilter]);
 
+  // Real-time WebSocket listener for new Announcements via Reverb
+  useEffect(() => {
+    const channel = echo.channel('announcements');
+
+    const handleNewAnnouncement = (event: any) => {
+      const incoming: Announcement = {
+        id: event.id || Date.now(),
+        title: event.title,
+        content: event.content,
+        target_audience: event.target_audience || 'all',
+        priority: 'important',
+        published_at: event.publish_date || new Date().toISOString().substring(0, 10),
+        author_name: event.author?.name || 'Academic Affairs',
+      };
+
+      setAnnouncements((prev) => {
+        if (prev.some((a) => a.id === incoming.id)) return prev;
+        const next = [incoming, ...prev];
+        saveStoredData('announcements_list', next);
+        return next;
+      });
+    };
+
+    channel.listen('.AnnouncementCreated', handleNewAnnouncement);
+    channel.listen('AnnouncementCreated', handleNewAnnouncement);
+
+    return () => {
+      channel.stopListening('.AnnouncementCreated', handleNewAnnouncement);
+      channel.stopListening('AnnouncementCreated', handleNewAnnouncement);
+      echo.leave('announcements');
+    };
+  }, []);
+
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -52,21 +86,50 @@ export const Announcements: React.FC = () => {
     priority: 'important' as Announcement['priority'],
   });
 
-  const handleCreateAnnouncement = (e: React.FormEvent) => {
+  const handleCreateAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newNotice: Announcement = {
-      id: Date.now(),
-      title: formData.title,
-      content: formData.content,
-      target_audience: formData.target_audience,
-      priority: formData.priority,
-      published_at: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      author_name: 'Academic Affairs',
-    };
 
-    const updated = [newNotice, ...announcements];
-    setAnnouncements(updated);
-    saveStoredData('announcements_list', updated);
+    try {
+      const created = await announcementService.createAnnouncement({
+        title: formData.title,
+        content: formData.content,
+        target_audience: formData.target_audience,
+        publish_date: new Date().toISOString().substring(0, 10),
+      });
+
+      if (created) {
+        const mappedNotice: Announcement = {
+          id: created.id,
+          title: created.title,
+          content: created.content,
+          target_audience: created.target_audience,
+          priority: formData.priority,
+          published_at: created.publish_date || new Date().toISOString().substring(0, 10),
+          author_name: created.author?.name || 'Academic Affairs',
+        };
+        setAnnouncements((prev) => {
+          if (prev.some((a) => a.id === mappedNotice.id)) return prev;
+          const updated = [mappedNotice, ...prev];
+          saveStoredData('announcements_list', updated);
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn('Backend announcement publish error, saving locally:', err);
+      const newNotice: Announcement = {
+        id: Date.now(),
+        title: formData.title,
+        content: formData.content,
+        target_audience: formData.target_audience,
+        priority: formData.priority,
+        published_at: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        author_name: 'Academic Affairs',
+      };
+      const updated = [newNotice, ...announcements];
+      setAnnouncements(updated);
+      saveStoredData('announcements_list', updated);
+    }
+
     setIsModalOpen(false);
     setFormData({ title: '', content: '', target_audience: 'all', priority: 'important' });
   };
@@ -77,7 +140,7 @@ export const Announcements: React.FC = () => {
 
   return (
     <div id="announcements-page">
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">School Notice Board & Bulletins</h1>
           <p className="page-subtitle">
@@ -85,7 +148,23 @@ export const Announcements: React.FC = () => {
           </p>
         </div>
         {(currentRole === 'admin' || currentRole === 'teacher') && (
-          <div className="page-actions">
+          <div className="page-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                fontSize: '0.75rem',
+                color: '#10b981',
+                background: 'rgba(16, 185, 129, 0.1)',
+                padding: '0.3rem 0.65rem',
+                borderRadius: '9999px',
+                border: '1px solid rgba(16, 185, 129, 0.25)',
+                fontWeight: 600,
+              }}
+            >
+              <Radio size={13} /> Live Broadcast Feed
+            </span>
             <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
               <Plus size={16} /> Publish Notice
             </button>
@@ -230,3 +309,4 @@ export const Announcements: React.FC = () => {
     </div>
   );
 };
+export default Announcements;

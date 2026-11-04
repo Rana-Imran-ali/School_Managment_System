@@ -1218,6 +1218,35 @@ input, select, textarea {
   background: var(--danger);
   box-shadow: 0 0 6px var(--danger);
 }
+.navbar-notification-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 9999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
+  line-height: 1;
+}
+@keyframes fadeInSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .navbar-logout-btn:hover {
   background: var(--danger-bg) !important;
   color: var(--danger) !important;

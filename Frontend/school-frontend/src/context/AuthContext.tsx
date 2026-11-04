@@ -54,7 +54,7 @@ interface AuthContextType {
   /** true when user is logged in */
   isAuthenticated: boolean;
   /** Log in with email + password */
-  loginWithEmail: (email: string, password: string) => Promise<boolean>;
+  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   /** Register a new user account (student, teacher, parent) */
   registerUser: (payload: import('../api/authService').RegisterPayload) => Promise<{ success: boolean; error?: string }>;
   /** Log out and clear session */
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   /* ---------- login ---------- */
-  const loginWithEmail = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const loginWithEmail = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsAuthenticating(true);
     try {
       const { user } = await authService.login({ email, password });
@@ -133,11 +133,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mapped = mapApiUser(user);
         setCurrentUser(mapped);
         setIsAuthenticated(true);
-        return true;
+        return { success: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { success: false, error: 'Login failed. Please try again.' };
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (!err?.response || err?.code === 'ERR_NETWORK'
+          ? 'Cannot connect to backend server. Please ensure Laravel is running (php artisan serve).'
+          : err?.response?.status === 429
+            ? 'Too many login attempts. Please wait a few minutes and try again.'
+            : err?.response?.status === 403
+              ? 'Your account is currently inactive or suspended. Please contact the administrator.'
+              : 'Invalid email or password. Please verify your credentials.');
+      return { success: false, error: errorMsg };
     } finally {
       setIsAuthenticating(false);
     }

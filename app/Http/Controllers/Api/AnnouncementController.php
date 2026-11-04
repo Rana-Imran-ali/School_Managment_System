@@ -2,9 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\AnnouncementCreated;
+use App\Events\NotificationSent;
 use App\Http\Requests\Announcement\StoreAnnouncementRequest;
 use App\Http\Resources\AnnouncementResource;
 use App\Models\Announcement;
+use App\Models\Notification;
+use App\Models\User;
+use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -42,10 +47,47 @@ class AnnouncementController extends ApiController
         $validated['created_by']   = Auth::id() ?? 1;
 
         $announcement = Announcement::create($validated);
+        $announcement->load('author:id,name,role');
         $this->logActivity("Published circular notice '{$announcement->title}' to {$announcement->target_audience}", 'Announcements');
 
+        try {
+            broadcast(new AnnouncementCreated($announcement));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('WebSocket broadcast failed for AnnouncementCreated: ' . $e->getMessage());
+        }
+
+        // Notify target audience members via in-app notification
+        try {
+            $userQuery = User::query();
+            if ($announcement->target_audience !== 'all') {
+                $role = match ($announcement->target_audience) {
+                    'teachers' => 'teacher',
+                    'students' => 'student',
+                    'parents'  => 'parent',
+                    default    => null,
+                };
+                if ($role) {
+                    $userQuery->where('role', $role);
+                }
+            }
+            $targetUsers = $userQuery->where('id', '!=', Auth::id())->take(100)->get();
+            foreach ($targetUsers as $targetUser) {
+                $notif = Notification::create([
+                    'user_id' => $targetUser->id,
+                    'type'    => 'announcement',
+                    'title'   => 'Notice: ' . $announcement->title,
+                    'message' => Str::limit($announcement->content, 80),
+                    'link'    => '/announcements',
+                    'data'    => ['announcement_id' => $announcement->id],
+                ]);
+                broadcast(new NotificationSent($notif));
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Announcement notification dispatch failed: ' . $e->getMessage());
+        }
+
         return $this->successResponse(
-            new AnnouncementResource($announcement->load('author:id,name,role')),
+            new AnnouncementResource($announcement),
             'Announcement published successfully.',
             201
         );

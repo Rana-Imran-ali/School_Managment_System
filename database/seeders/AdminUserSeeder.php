@@ -11,12 +11,12 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'admin@educore.edu'],
+            ['email' => 'ranaimranali2210@gmail.com'],
             [
                 'name'     => 'Alexander Wright',
                 'password' => Hash::make('password123'),
                 'role'     => 'admin',
-                'phone'    => '+1 (555) 019-2834',
+                'phone'    => '+92 3039099596',
                 'gender'   => 'male',
                 'status'   => 'active',
                 'address'  => '450 Innovation Blvd, Silicon Valley, CA',

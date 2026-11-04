@@ -19,14 +19,19 @@ return new class extends Migration
             ->whereNotIn('role', ['admin', 'teacher', 'student', 'parent', 'staff'])
             ->update(['role' => 'student']);
 
-        // Step 2: Alter the column to ENUM (SQLite-safe approach via raw SQL)
-        // For MySQL/MariaDB:
-        DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','student','parent','staff') NOT NULL DEFAULT 'student'");
+        // Step 2: Alter the column to ENUM (MySQL/MariaDB only).
+        // SQLite does not support ENUM or ALTER MODIFY, so we skip it;
+        // the existing VARCHAR column is sufficient for testing.
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('admin','teacher','student','parent','staff') NOT NULL DEFAULT 'student'");
+        }
     }
 
     public function down(): void
     {
-        // Revert to plain string if rolling back
-        DB::statement("ALTER TABLE users MODIFY COLUMN role VARCHAR(255) NOT NULL DEFAULT 'student'");
+        // Revert to plain string if rolling back (MySQL/MariaDB only)
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE users MODIFY COLUMN role VARCHAR(255) NOT NULL DEFAULT 'student'");
+        }
     }
 };

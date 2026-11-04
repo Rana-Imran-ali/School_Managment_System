@@ -72,11 +72,11 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    const success = await loginWithEmail(email, password);
-    if (success) {
+    const result = await loginWithEmail(email, password);
+    if (result.success) {
       navigate(from, { replace: true });
     } else {
-      setError('Invalid email or password. Please verify your credentials or register a new account.');
+      setError(result.error || 'Invalid email or password. Please verify your credentials or register a new account.');
     }
   };
 

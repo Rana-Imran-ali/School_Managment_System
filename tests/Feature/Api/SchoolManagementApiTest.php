@@ -10,6 +10,18 @@ class SchoolManagementApiTest extends TestCase
 {
     use DatabaseMigrations;
 
+    /**
+     * Admin email and password that match the AdminUserSeeder.
+     */
+    private string $adminEmail    = 'ranaimranali2210@gmail.com';
+    private string $adminPassword = 'password123';
+
+    /**
+     * Strong password that satisfies the RegisterRequest validation
+     * (mixed-case, numbers, symbols).
+     */
+    private string $strongPassword = 'Str0ng!Pass99';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -19,8 +31,8 @@ class SchoolManagementApiTest extends TestCase
     protected function authenticate(): array
     {
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'admin@educore.edu',
-            'password' => 'password123',
+            'email'    => $this->adminEmail,
+            'password' => $this->adminPassword,
         ]);
 
         $token = $response->json('data.token');
@@ -30,8 +42,8 @@ class SchoolManagementApiTest extends TestCase
     public function test_admin_can_login(): void
     {
         $response = $this->postJson('/api/auth/login', [
-            'email'    => 'admin@educore.edu',
-            'password' => 'password123',
+            'email'    => $this->adminEmail,
+            'password' => $this->adminPassword,
         ]);
 
         $response->assertStatus(200)
@@ -51,8 +63,8 @@ class SchoolManagementApiTest extends TestCase
         $studentRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Student User',
             'email'                 => 'newstudent@example.com',
-            'password'              => 'password123',
-            'password_confirmation' => 'password123',
+            'password'              => $this->strongPassword,
+            'password_confirmation' => $this->strongPassword,
             'role'                  => 'student',
             'gender'                => 'male',
         ]);
@@ -64,26 +76,28 @@ class SchoolManagementApiTest extends TestCase
         $teacherRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Teacher User',
             'email'                 => 'newteacher@example.com',
-            'password'              => 'password123',
-            'password_confirmation' => 'password123',
+            'password'              => $this->strongPassword,
+            'password_confirmation' => $this->strongPassword,
             'role'                  => 'teacher',
             'gender'                => 'female',
         ]);
 
+        // Note: role is always forced to 'student' server-side (FLAW 1 fix)
         $teacherRes->assertStatus(201)
-                   ->assertJsonPath('data.user.role', 'teacher');
+                   ->assertJsonPath('data.user.role', 'student');
 
         // 3. Register Parent
         $parentRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Parent User',
             'email'                 => 'newparent@example.com',
-            'password'              => 'password123',
-            'password_confirmation' => 'password123',
+            'password'              => $this->strongPassword,
+            'password_confirmation' => $this->strongPassword,
             'role'                  => 'parent',
         ]);
 
+        // Note: role is always forced to 'student' server-side (FLAW 1 fix)
         $parentRes->assertStatus(201)
-                   ->assertJsonPath('data.user.role', 'parent');
+                   ->assertJsonPath('data.user.role', 'student');
     }
 
     public function test_authenticated_user_can_access_me_profile(): void
@@ -93,7 +107,7 @@ class SchoolManagementApiTest extends TestCase
         $response = $this->withHeaders($headers)->getJson('/api/auth/me');
 
         $response->assertStatus(200)
-                 ->assertJsonPath('data.email', 'admin@educore.edu');
+                 ->assertJsonPath('data.email', $this->adminEmail);
     }
 
     public function test_admin_dashboard_stats_endpoint(): void

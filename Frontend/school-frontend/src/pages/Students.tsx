@@ -390,6 +390,9 @@ export const Students: React.FC = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                An invitation email will be sent to this address with a link to set their password.
+              </span>
             </div>
           </div>
 

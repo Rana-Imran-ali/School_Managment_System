@@ -46,6 +46,11 @@ export const feeService = {
     const response = await apiClient.post('/fee-types', data);
     return response.data.data;
   },
+
+  async getStudentFeeLedger(studentId: number) {
+    const response = await apiClient.get(`/students/${studentId}/fee-ledger`);
+    return response.data.data;
+  },
 };
 
 export default feeService;

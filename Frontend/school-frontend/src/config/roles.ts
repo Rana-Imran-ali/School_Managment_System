@@ -17,6 +17,7 @@ export interface RoutePermission {
 export const ROUTE_PERMISSIONS: RoutePermission[] = [
   { path: '/',              label: 'Dashboard',       allowedRoles: ['admin', 'teacher', 'student', 'parent'] },
   { path: '/students',      label: 'Students',        allowedRoles: ['admin', 'teacher'] },
+  { path: '/parents',       label: 'Parents',         allowedRoles: ['admin', 'teacher'] },
   { path: '/teachers',      label: 'Teachers',        allowedRoles: ['admin'] },
   { path: '/academics',     label: 'Academic Setup',  allowedRoles: ['admin', 'teacher'] },
   { path: '/timetable',     label: 'Timetable',       allowedRoles: ['admin', 'teacher', 'student', 'parent'] },

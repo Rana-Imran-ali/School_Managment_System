@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\MessageSent;
+use App\Events\NotificationSent;
+use App\Models\Notification;
+use Illuminate\Support\Str;
 use App\Http\Requests\Message\StoreMessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
@@ -102,8 +106,35 @@ class MessageController extends ApiController
             'is_read'     => false,
         ]);
 
+        $message->load(['sender:id,name,role', 'receiver:id,name,role']);
+
+        try {
+            broadcast(new MessageSent($message));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('WebSocket broadcast failed for MessageSent: ' . $e->getMessage());
+        }
+
+        // Create and broadcast an in-app notification for the receiver
+        try {
+            $senderName = $message->sender?->name ?? 'A user';
+            $notification = Notification::create([
+                'user_id' => $message->receiver_id,
+                'type'    => 'message',
+                'title'   => 'New message from ' . $senderName,
+                'message' => Str::limit($message->message, 80),
+                'link'    => '/messages',
+                'data'    => [
+                    'message_id' => $message->id,
+                    'sender_id'  => $message->sender_id,
+                ],
+            ]);
+            broadcast(new NotificationSent($notification));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Notification dispatch failed for message: ' . $e->getMessage());
+        }
+
         return $this->successResponse(
-            new MessageResource($message->load('receiver:id,name,role')),
+            new MessageResource($message),
             'Message dispatched successfully.',
             201
         );

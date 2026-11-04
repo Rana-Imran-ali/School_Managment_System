@@ -8,6 +8,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -23,7 +24,8 @@ class AuthController extends ApiController
         $credentials = $request->validated();
 
         // --- Rate Limiting (FLAW 2 & 8 fix) ---
-        $throttleKey = 'login:' . Str::lower($credentials['email']) . '|' . $request->ip();
+        $email = trim(strtolower($credentials['email']));
+        $throttleKey = 'login:' . $email . '|' . $request->ip();
 
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
@@ -34,7 +36,7 @@ class AuthController extends ApiController
             );
         }
 
-        $user = User::where('email', $credentials['email'])->first();
+        $user = User::where('email', $email)->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             // Increment the failed attempt counter (decays after 5 minutes)
@@ -72,8 +74,7 @@ class AuthController extends ApiController
         // FLAW 1 fix: role is NEVER accepted from the client; always default to student.
         $validated['role']   = 'student';
         $validated['status'] = 'active';
-        // Password is auto-hashed by the User model cast, but we hash explicitly for clarity.
-        $validated['password'] = Hash::make($validated['password']);
+        // Password is auto-hashed by the User model's 'hashed' cast — no manual Hash::make() needed.
 
         $user = User::create($validated);
 
@@ -112,5 +113,58 @@ class AuthController extends ApiController
     {
         $user = $request->user()->load(['studentProfile', 'teacherProfile', 'parentProfile']);
         return $this->successResponse(new UserResource($user), 'Current user profile retrieved.');
+    }
+
+    /**
+     * Set/Reset password using the email verification token.
+     */
+    public function setPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token'    => ['required', 'string'],
+            'email'    => ['required', 'email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $email = trim(strtolower($request->input('email')));
+        $token = $request->input('token');
+
+        $record = DB::table('password_reset_tokens')->where('email', $email)->first();
+
+        if (!$record || !Hash::check($token, $record->token)) {
+            return $this->errorResponse('Invalid or expired password setup link. Please contact administration.', null, 400);
+        }
+
+        // Token expiry: 60 minutes
+        if (now()->subMinutes(60)->greaterThan($record->created_at)) {
+            DB::table('password_reset_tokens')->where('email', $email)->delete();
+            return $this->errorResponse('This password setup link has expired. Please ask administration to re-invite you.', null, 400);
+        }
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            return $this->notFoundResponse('User account not found.');
+        }
+
+        // Password is automatically hashed by User model casts
+        $user->password = $request->input('password');
+        $user->status = 'active';
+        $user->email_verified_at = now();
+        $user->save();
+
+        // Delete used token
+        DB::table('password_reset_tokens')->where('email', $email)->delete();
+
+        // Issue bearer token so the student can immediately proceed to dashboard
+        $deviceName = $request->input('device_name', 'student-portal');
+        $authToken = $user->createToken($deviceName, ['*'], now()->addHours(24))->plainTextToken;
+
+        $this->logActivity("User {$user->name} set their password and activated account", 'Authentication', $user->id);
+
+        return $this->successResponse([
+            'user'       => new UserResource($user->fresh(['studentProfile'])),
+            'token'      => $authToken,
+            'expires_in' => 86400,
+        ], 'Password configured successfully. Welcome to your student dashboard!');
     }
 }

@@ -34,6 +34,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: '/',              label: 'Dashboard',      icon: <LayoutDashboard size={18} />, section: 'Core Management' },
   { path: '/students',      label: 'Students',       icon: <Users size={18} /> },
+  { path: '/parents',       label: 'Parents',        icon: <UserCheck size={18} /> },
   { path: '/teachers',      label: 'Teachers',       icon: <GraduationCap size={18} /> },
   { path: '/academics',     label: 'Academic Setup',  icon: <BookOpen size={18} />, section: 'Academics & Schedule' },
   { path: '/timetable',     label: 'Timetable',      icon: <Calendar size={18} /> },

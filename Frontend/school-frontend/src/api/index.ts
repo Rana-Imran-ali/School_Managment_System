@@ -10,3 +10,5 @@ export { timetableService } from './timetableService';
 export { announcementService } from './announcementService';
 export { messageService } from './messageService';
 export { adminService } from './adminService';
+export { parentService } from './parentService';
+export { notificationService } from './notificationService';

@@ -1,8 +1,11 @@
+
 name: Laravel CI
 
 on:
   push:
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -12,39 +15,56 @@ jobs:
     permissions:
       contents: read
 
-    env:
-      APP_ENV: testing
-      DB_CONNECTION: sqlite
-      DB_DATABASE: ":memory:"
-      CACHE_STORE: array
-      SESSION_DRIVER: array
-      QUEUE_CONNECTION: sync
+    # Start a temporary MySQL server
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ppassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
-      # Step 1: Download project code from GitHub
+      # 1. Download project code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Install PHP 8.2
+      # 2. Install PHP 8.2 and MySQL extension
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, bcmath, pdo_sqlite, sqlite3
+          php-version: "8.2"
+          extensions: mbstring, bcmath, pdo_mysql
           coverage: none
 
-      # Step 3: Copy Laravel environment configuration
-      - name: Prepare environment
+      # 3. Prepare Laravel environment
+      - name: Copy environment file
         run: cp .env.example .env
 
-      # Step 4: Install Composer dependencies
+      # 4. Install Composer dependencies
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-interaction
 
-      # Step 5: Generate Laravel application key
+      # 5. Generate application key
       - name: Generate application key
         run: php artisan key:generate
 
-      # Step 6: Run Laravel automated tests
-      - name: Run tests
+      # 6. Run tests using MySQL
+      - name: Run Laravel tests
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: laravel_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
         run: php artisan test

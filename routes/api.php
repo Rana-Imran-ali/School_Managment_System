@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\FeeStructureController;
 use App\Http\Controllers\Api\FeeTypeController;
 use App\Http\Controllers\Api\GradeController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ParentProfileController;
 use App\Http\Controllers\Api\PeriodController;
 use App\Http\Controllers\Api\SchoolClassController;
@@ -33,6 +34,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->middleware('throttle:10,1')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/set-password', [AuthController::class, 'setPassword']);
 });
 
 /*
@@ -70,6 +72,13 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     Route::get('/fee-payments/{id}', [FeePaymentController::class, 'show']);
     Route::get('/students/{id}/fee-ledger', [FeePaymentController::class, 'studentLedger']);
     Route::get('/announcements', [AnnouncementController::class, 'index']);
+
+    // In-App Notifications (Available to all authenticated users)
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
     // Direct Messaging (Available to all authenticated users)
     Route::get('/messages/inbox', [MessageController::class, 'inbox']);

@@ -8,6 +8,7 @@ import {
   Eye,
   Clock,
   Layers,
+  FileSpreadsheet,
 } from 'lucide-react';
 import type { FeePayment, FeeStructure, FeeType } from '../types';
 import {
@@ -26,7 +27,7 @@ import { useAuth } from '../context/AuthContext';
 
 export const Fees: React.FC = () => {
   const { currentRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<'payments' | 'structures'>('payments');
+  const [activeTab, setActiveTab] = useState<'payments' | 'structures' | 'ledger'>('payments');
 
   const [payments, setPayments] = useState<FeePayment[]>(() =>
     getStoredData('fee_payments_list', initialFeePayments)
@@ -38,7 +39,23 @@ export const Fees: React.FC = () => {
     getStoredData('fee_types_list', initialFeeTypes)
   );
 
-  // Load live fee data from backend
+  // Student Fee Ledger state
+  const [selectedLedgerStudentId, setSelectedLedgerStudentId] = useState<number | null>(null);
+  const [ledgerData, setLedgerData] = useState<any | null>(null);
+  const [isLoadingLedger, setIsLoadingLedger] = useState<boolean>(false);
+
+  const fetchLedger = async (studentId: number) => {
+    setSelectedLedgerStudentId(studentId);
+    setIsLoadingLedger(true);
+    try {
+      const data = await feeService.getStudentFeeLedger(studentId);
+      setLedgerData(data);
+    } catch (err) {
+      console.error('Failed to load student ledger:', err);
+    } finally {
+      setIsLoadingLedger(false);
+    }
+  };
   React.useEffect(() => {
     let isMounted = true;
 
@@ -194,6 +211,17 @@ export const Fees: React.FC = () => {
             <Layers size={16} /> Class Fee Schedules
           </button>
         )}
+        <button
+          className={`tab-btn ${activeTab === 'ledger' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('ledger');
+            if (!selectedLedgerStudentId && initialStudents.length > 0) {
+              fetchLedger(initialStudents[0].id);
+            }
+          }}
+        >
+          <FileSpreadsheet size={16} /> Student Fee Ledger
+        </button>
       </div>
 
       {/* TAB 1: Payment Transactions */}
@@ -319,6 +347,112 @@ export const Fees: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* TAB 3: Student Fee Ledger */}
+      {activeTab === 'ledger' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <label style={{ fontWeight: 600, fontSize: '0.9rem' }}>Select Student:</label>
+            <select
+              className="form-select"
+              style={{ maxWidth: '320px' }}
+              value={selectedLedgerStudentId || ''}
+              onChange={(e) => fetchLedger(Number(e.target.value))}
+            >
+              {initialStudents.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.user?.name} ({st.admission_number})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {isLoadingLedger ? (
+            <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center' }}>
+              Loading student ledger...
+            </div>
+          ) : ledgerData ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Summary Cards */}
+              <div className="stat-grid">
+                <div className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-label">Total Invoiced</span>
+                    <DollarSign size={20} color="var(--primary)" />
+                  </div>
+                  <div className="stat-value">${ledgerData.total_invoiced?.toFixed(2) || '0.00'}</div>
+                  <div className="stat-trend">Academic Year Schedule</div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-label">Total Paid</span>
+                    <CreditCard size={20} color="var(--success)" />
+                  </div>
+                  <div className="stat-value" style={{ color: 'var(--success)' }}>
+                    ${ledgerData.total_paid?.toFixed(2) || '0.00'}
+                  </div>
+                  <div className="stat-trend trend-up">Cleared settlements</div>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-top">
+                    <span className="stat-label">Outstanding Balance</span>
+                    <Clock size={20} color="var(--danger)" />
+                  </div>
+                  <div className="stat-value" style={{ color: ledgerData.outstanding_due > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                    ${ledgerData.outstanding_due?.toFixed(2) || '0.00'}
+                  </div>
+                  <div className="stat-trend" style={{ color: ledgerData.outstanding_due > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                    {ledgerData.outstanding_due > 0 ? 'Payment Required' : 'Fully Paid'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions List */}
+              <div className="glass-panel" style={{ padding: '0.75rem' }}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem', fontWeight: 600 }}>Ledger Payment History</h3>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Receipt #</th>
+                      <th>Category</th>
+                      <th>Amount Paid</th>
+                      <th>Date</th>
+                      <th>Method</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledgerData.payments && ledgerData.payments.length > 0 ? (
+                      ledgerData.payments.map((p: any) => (
+                        <tr key={p.id}>
+                          <td><code>{p.receipt_number}</code></td>
+                          <td>{p.fee_type?.name || 'Tuition Fee'}</td>
+                          <td><strong>${Number(p.amount_paid).toFixed(2)}</strong></td>
+                          <td>{p.payment_date}</td>
+                          <td><span className="badge badge-info">{p.payment_method}</span></td>
+                          <td><StatusBadge status={p.status} /></td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1.5rem' }}>
+                          No payment transactions recorded for this student yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Select a student above to inspect their fee ledger statements.
+            </div>
+          )}
         </div>
       )}
 
