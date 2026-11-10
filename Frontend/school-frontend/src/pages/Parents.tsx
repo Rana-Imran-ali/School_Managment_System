@@ -169,11 +169,12 @@ export const Parents: React.FC = () => {
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="search-filter-bar">
-        <div className="search-box">
-          <Search size={16} />
+      <div className="filter-bar">
+        <div className="search-input-wrapper">
+          <Search size={16} className="search-icon" />
           <input
             type="text"
+            className="search-input"
             placeholder="Search by name, email, or ward..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -400,18 +401,19 @@ export const Parents: React.FC = () => {
           onClose={() => setIsAddModalOpen(false)}
           title="Register New Parent / Guardian"
         >
-          <form onSubmit={handleAddParent} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <form onSubmit={handleAddParent} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {formError && (
-              <div style={{ padding: '0.6rem 0.85rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}>
+              <div style={{ padding: '0.65rem 0.9rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
                 {formError}
               </div>
             )}
 
             <div className="form-group">
-              <label>Full Legal Name *</label>
+              <label className="form-label">Full Legal Name *</label>
               <input
                 type="text"
                 required
+                className="form-input"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g. David Reynolds"
@@ -419,20 +421,25 @@ export const Parents: React.FC = () => {
             </div>
 
             <div className="form-group">
-              <label>Email Address *</label>
+              <label className="form-label">Email Address *</label>
               <input
                 type="email"
                 required
+                className="form-input"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="e.g. david.reynolds@example.com"
               />
+              <span style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.35rem', display: 'block', fontWeight: 500 }}>
+                ✉️ An invitation email will be sent to this address to set up login password.
+              </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+            <div className="form-row">
               <div className="form-group">
-                <label>Relationship *</label>
+                <label className="form-label">Relationship *</label>
                 <select
+                  className="form-select"
                   value={formData.relationship}
                   onChange={(e) => setFormData({ ...formData, relationship: e.target.value })}
                 >
@@ -445,9 +452,10 @@ export const Parents: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Phone Number</label>
+                <label className="form-label">Phone Number</label>
                 <input
                   type="tel"
+                  className="form-input"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="+1 (555) 000-0000"
@@ -455,11 +463,12 @@ export const Parents: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
+            <div className="form-row">
               <div className="form-group">
-                <label>Occupation</label>
+                <label className="form-label">Occupation</label>
                 <input
                   type="text"
+                  className="form-input"
                   value={formData.occupation}
                   onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
                   placeholder="e.g. Software Engineer"
@@ -467,27 +476,32 @@ export const Parents: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label>Password (Optional)</label>
+                <label className="form-label">Initial Password (Optional)</label>
                 <input
                   type="password"
+                  className="form-input"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   placeholder="Default: password123"
                 />
+                <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                  🔑 Parent can log in immediately with this password until they reset it via email.
+                </span>
               </div>
             </div>
 
             <div className="form-group">
-              <label>Residential Address</label>
+              <label className="form-label">Residential Address</label>
               <textarea
                 rows={2}
+                className="form-textarea"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Full residential street address..."
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
               <button
                 type="button"
                 className="btn btn-secondary"

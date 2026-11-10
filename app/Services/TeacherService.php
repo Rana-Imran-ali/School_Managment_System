@@ -3,12 +3,16 @@
 namespace App\Services;
 
 use App\Contracts\Services\TeacherServiceInterface;
+use App\Mail\UserInvitationMail;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class TeacherService implements TeacherServiceInterface
 {
@@ -39,10 +43,12 @@ class TeacherService implements TeacherServiceInterface
     public function createTeacher(array $data): TeacherProfile
     {
         return DB::transaction(function () use ($data) {
+            $defaultPassword = !empty($data['password']) ? $data['password'] : 'password123';
+
             $user = User::create([
                 'name'     => $data['name'],
                 'email'    => $data['email'],
-                'password' => Hash::make($data['password'] ?? 'teacher123'),
+                'password' => Hash::make($defaultPassword),
                 'role'     => 'teacher',
                 'phone'    => $data['phone'] ?? null,
                 'status'   => 'active',
@@ -57,6 +63,25 @@ class TeacherService implements TeacherServiceInterface
                 'salary'         => $data['salary'] ?? null,
                 'bio'            => $data['bio'] ?? null,
             ]);
+
+            // Generate password setup token and dispatch email notification
+            try {
+                $token = Str::random(64);
+                DB::table('password_reset_tokens')->updateOrInsert(
+                    ['email' => $user->email],
+                    [
+                        'token'      => Hash::make($token),
+                        'created_at' => now(),
+                    ]
+                );
+
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+                $setPasswordUrl = "{$frontendUrl}/set-password?token={$token}&email=" . urlencode($user->email);
+
+                Mail::to($user->email)->send(new UserInvitationMail($user, $setPasswordUrl, $defaultPassword));
+            } catch (\Throwable $e) {
+                Log::warning("Could not dispatch teacher password invitation mail to {$user->email}: " . $e->getMessage());
+            }
 
             return $teacher->load('user');
         });

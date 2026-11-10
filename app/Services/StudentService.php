@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\Services\StudentServiceInterface;
-use App\Mail\StudentSetPasswordMail;
+use App\Mail\UserInvitationMail;
 use App\Models\StudentProfile;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -59,10 +59,12 @@ class StudentService implements StudentServiceInterface
     public function createStudent(array $data): StudentProfile
     {
         return DB::transaction(function () use ($data) {
+            $defaultPassword = !empty($data['password']) ? $data['password'] : 'password123';
+
             $user = User::create([
                 'name'          => $data['name'],
                 'email'         => $data['email'],
-                'password'      => Hash::make($data['password'] ?? 'student123'),
+                'password'      => Hash::make($defaultPassword),
                 'role'          => 'student',
                 'phone'         => $data['phone'] ?? null,
                 'gender'        => $data['gender'] ?? null,
@@ -97,7 +99,7 @@ class StudentService implements StudentServiceInterface
                 $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
                 $setPasswordUrl = "{$frontendUrl}/set-password?token={$token}&email=" . urlencode($user->email);
 
-                Mail::to($user->email)->send(new StudentSetPasswordMail($user, $setPasswordUrl));
+                Mail::to($user->email)->send(new UserInvitationMail($user, $setPasswordUrl, $defaultPassword));
             } catch (\Throwable $e) {
                 Log::warning("Could not dispatch student password invitation mail to {$user->email}: " . $e->getMessage());
             }

@@ -93,7 +93,7 @@ export const SetPasswordPage: React.FC = () => {
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', margin: 0 }}>
                 Welcome to EduCore! Choose a secure password for <br />
-                <strong style={{ color: 'var(--primary)' }}>{emailParam || 'your student account'}</strong>
+                <strong style={{ color: 'var(--primary)' }}>{emailParam || 'your account'}</strong>
               </p>
             </div>
 
@@ -117,7 +117,7 @@ export const SetPasswordPage: React.FC = () => {
                 <CheckCircle2 size={44} color="#10b981" style={{ margin: '0 auto 0.75rem' }} />
                 <h3 style={{ margin: '0 0 0.5rem', color: '#10b981' }}>Password Configured!</h3>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: '0 0 1rem' }}>
-                  Logging you in automatically and redirecting to your student dashboard...
+                  Logging you in automatically and redirecting to your dashboard...
                 </p>
                 <div className="login-btn-spinner" style={{ margin: '0 auto' }} />
               </div>

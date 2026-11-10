@@ -3,11 +3,15 @@
 namespace App\Services;
 
 use App\Contracts\Services\ParentServiceInterface;
+use App\Mail\UserInvitationMail;
 use App\Models\ParentProfile;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class ParentService implements ParentServiceInterface
 {
@@ -35,10 +39,12 @@ class ParentService implements ParentServiceInterface
     public function createParent(array $data): ParentProfile
     {
         return DB::transaction(function () use ($data) {
+            $defaultPassword = !empty($data['password']) ? $data['password'] : 'password123';
+
             $user = User::create([
                 'name'     => $data['name'],
                 'email'    => $data['email'],
-                'password' => Hash::make($data['password'] ?? 'parent123'),
+                'password' => Hash::make($defaultPassword),
                 'role'     => 'parent',
                 'phone'    => $data['phone'] ?? null,
                 'address'  => $data['address'] ?? null,
@@ -50,6 +56,25 @@ class ParentService implements ParentServiceInterface
                 'occupation'   => $data['occupation'] ?? null,
                 'relationship' => $data['relationship'] ?? 'Guardian',
             ]);
+
+            // Generate password setup token and dispatch email notification
+            try {
+                $token = Str::random(64);
+                DB::table('password_reset_tokens')->updateOrInsert(
+                    ['email' => $user->email],
+                    [
+                        'token'      => Hash::make($token),
+                        'created_at' => now(),
+                    ]
+                );
+
+                $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
+                $setPasswordUrl = "{$frontendUrl}/set-password?token={$token}&email=" . urlencode($user->email);
+
+                Mail::to($user->email)->send(new UserInvitationMail($user, $setPasswordUrl, $defaultPassword));
+            } catch (\Throwable $e) {
+                Log::warning("Could not dispatch parent password invitation mail to {$user->email}: " . $e->getMessage());
+            }
 
             return $parent->load('user');
         });

@@ -65,32 +65,17 @@ class AuthController extends ApiController
     }
 
     /**
-     * Register a new user account.
-     * Role is always forced to 'student' — admins assign roles via the admin panel.
+     * Public self-registration is permanently disabled.
+     * All student, teacher, and parent accounts must be provisioned
+     * by the school administration via email invitation.
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        $validated = $request->validated();
-        // FLAW 1 fix: role is NEVER accepted from the client; always default to student.
-        $validated['role']   = 'student';
-        $validated['status'] = 'active';
-        // Password is auto-hashed by the User model's 'hashed' cast — no manual Hash::make() needed.
-
-        $user = User::create($validated);
-
-        // Automatically initialize student profile
-        \App\Models\StudentProfile::create([
-            'user_id'          => $user->id,
-            'admission_number' => 'ADM-' . date('Y') . '-' . str_pad((string) $user->id, 4, '0', STR_PAD_LEFT),
-            'roll_number'      => 'R-' . str_pad((string) $user->id, 3, '0', STR_PAD_LEFT),
-            'admission_date'   => now()->toDateString(),
-        ]);
-
-        $this->logActivity("Registered new user {$user->name}", 'Authentication', $user->id);
-
-        return $this->successResponse([
-            'user' => new UserResource($user->fresh(['studentProfile'])),
-        ], 'Registration successful. Please sign in with your credentials.', 201);
+        return $this->errorResponse(
+            'Public account registration is disabled. Student, Teacher, and Parent accounts are created exclusively by the school administration via email invitation.',
+            null,
+            403
+        );
     }
 
     /**
@@ -155,16 +140,17 @@ class AuthController extends ApiController
         // Delete used token
         DB::table('password_reset_tokens')->where('email', $email)->delete();
 
-        // Issue bearer token so the student can immediately proceed to dashboard
-        $deviceName = $request->input('device_name', 'student-portal');
+        // Issue bearer token so the user can immediately proceed to dashboard
+        $deviceName = $request->input('device_name', strtolower($user->role ?? 'user') . '-portal');
         $authToken = $user->createToken($deviceName, ['*'], now()->addHours(24))->plainTextToken;
 
         $this->logActivity("User {$user->name} set their password and activated account", 'Authentication', $user->id);
 
+        $roleLabel = ucfirst($user->role ?? 'User');
         return $this->successResponse([
-            'user'       => new UserResource($user->fresh(['studentProfile'])),
+            'user'       => new UserResource($user->fresh(['studentProfile', 'teacherProfile', 'parentProfile'])),
             'token'      => $authToken,
             'expires_in' => 86400,
-        ], 'Password configured successfully. Welcome to your student dashboard!');
+        ], "Password configured successfully. Welcome to your {$roleLabel} dashboard!");
     }
 }

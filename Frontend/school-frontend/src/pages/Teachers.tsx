@@ -59,6 +59,7 @@ export const Teachers: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     phone: '',
     employee_id: `EMP-T-${Math.floor(1000 + Math.random() * 9000)}`,
     qualification: 'M.S. in Education',
@@ -74,6 +75,7 @@ export const Teachers: React.FC = () => {
       const created = await teacherService.createTeacher({
         name: formData.name,
         email: formData.email,
+        password: formData.password || undefined,
         phone: formData.phone,
         employee_id: formData.employee_id,
         qualification: formData.qualification,
@@ -284,6 +286,9 @@ export const Teachers: React.FC = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
+              <span style={{ fontSize: '0.73rem', color: 'var(--primary)', marginTop: '0.35rem', display: 'block' }}>
+                ✉️ An invitation email will be sent to this address to set up login password.
+              </span>
             </div>
           </div>
 
@@ -308,6 +313,20 @@ export const Teachers: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Initial Password (Optional)</label>
+            <input
+              type="password"
+              className="form-input"
+              placeholder="Default: password123"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            />
+            <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+              🔑 Teacher can log in immediately with this password until they reset it via email.
+            </span>
           </div>
 
           <div className="form-row">

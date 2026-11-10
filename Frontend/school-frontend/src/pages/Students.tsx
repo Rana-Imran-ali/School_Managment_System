@@ -90,6 +90,7 @@ export const Students: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     phone: '',
     gender: 'male',
     date_of_birth: '2009-05-15',
@@ -109,6 +110,7 @@ export const Students: React.FC = () => {
       const created = await studentService.createStudent({
         name: formData.name,
         email: formData.email,
+        password: formData.password || undefined,
         phone: formData.phone,
         gender: formData.gender,
         date_of_birth: formData.date_of_birth,
@@ -391,8 +393,34 @@ export const Students: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                An invitation email will be sent to this address with a link to set their password.
+                ✉️ An invitation email will be sent to this address with a link to set their password.
               </span>
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Initial Password (Optional)</label>
+              <input
+                type="password"
+                className="form-input"
+                placeholder="Default: password123"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+              <span style={{ fontSize: '0.73rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                🔑 Student can log in immediately with this password until they reset it via email.
+              </span>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Contact Phone</label>
+              <input
+                type="tel"
+                className="form-input"
+                placeholder="+1 (555) 000-0000"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
             </div>
           </div>
 

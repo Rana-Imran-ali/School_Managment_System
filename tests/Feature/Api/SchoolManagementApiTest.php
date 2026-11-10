@@ -59,7 +59,10 @@ class SchoolManagementApiTest extends TestCase
 
     public function test_student_teacher_and_parent_can_register(): void
     {
-        // 1. Register Student
+        // Public registration is disabled by policy (accounts are invitation-only)
+        // Verify that self-registration attempts for student, teacher, and parent are forbidden (403)
+
+        // 1. Attempt to register Student
         $studentRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Student User',
             'email'                 => 'newstudent@example.com',
@@ -69,10 +72,10 @@ class SchoolManagementApiTest extends TestCase
             'gender'                => 'male',
         ]);
 
-        $studentRes->assertStatus(201)
-                   ->assertJsonPath('data.user.role', 'student');
+        $studentRes->assertStatus(403)
+                   ->assertJsonPath('success', false);
 
-        // 2. Register Teacher
+        // 2. Attempt to register Teacher
         $teacherRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Teacher User',
             'email'                 => 'newteacher@example.com',
@@ -82,11 +85,10 @@ class SchoolManagementApiTest extends TestCase
             'gender'                => 'female',
         ]);
 
-        // Note: role is always forced to 'student' server-side (FLAW 1 fix)
-        $teacherRes->assertStatus(201)
-                   ->assertJsonPath('data.user.role', 'student');
+        $teacherRes->assertStatus(403)
+                   ->assertJsonPath('success', false);
 
-        // 3. Register Parent
+        // 3. Attempt to register Parent
         $parentRes = $this->postJson('/api/auth/register', [
             'name'                  => 'New Parent User',
             'email'                 => 'newparent@example.com',
@@ -95,9 +97,8 @@ class SchoolManagementApiTest extends TestCase
             'role'                  => 'parent',
         ]);
 
-        // Note: role is always forced to 'student' server-side (FLAW 1 fix)
-        $parentRes->assertStatus(201)
-                   ->assertJsonPath('data.user.role', 'student');
+        $parentRes->assertStatus(403)
+                   ->assertJsonPath('success', false);
     }
 
     public function test_authenticated_user_can_access_me_profile(): void
