@@ -6,6 +6,7 @@ import {
   Layers,
   Plus,
   GraduationCap,
+  Trash2,
 } from 'lucide-react';
 import {
   initialClasses,
@@ -28,7 +29,7 @@ export const Academics: React.FC = () => {
 
   // State
   const [classes, setClasses] = useState(() => getStoredData('classes_list', initialClasses));
-  const [sections] = useState(() => getStoredData('sections_list', initialSections));
+  const [sections, setSections] = useState(() => getStoredData('sections_list', initialSections));
   const [subjects, setSubjects] = useState(() => getStoredData('subjects_list', initialSubjects));
   const [periods, setPeriods] = useState(() => getStoredData('periods_list', initialPeriods));
   const [academicYears, setAcademicYears] = useState(() => getStoredData('years_list', initialAcademicYears));
@@ -40,16 +41,21 @@ export const Academics: React.FC = () => {
 
     Promise.allSettled([
       academicService.getClasses(),
+      academicService.getSections(),
       academicService.getSubjects(),
       academicService.getPeriods(),
       academicService.getAcademicYears(),
       academicService.getTeacherAssignments(),
-    ]).then(([clsRes, subRes, perRes, yrRes, assRes]) => {
+    ]).then(([clsRes, secRes, subRes, perRes, yrRes, assRes]) => {
       if (!isMounted) return;
 
       if (clsRes.status === 'fulfilled' && clsRes.value && clsRes.value.length > 0) {
         setClasses(clsRes.value);
         saveStoredData('classes_list', clsRes.value);
+      }
+      if (secRes.status === 'fulfilled' && secRes.value && secRes.value.length > 0) {
+        setSections(secRes.value);
+        saveStoredData('sections_list', secRes.value);
       }
       if (subRes.status === 'fulfilled' && subRes.value && subRes.value.length > 0) {
         setSubjects(subRes.value);
@@ -79,10 +85,17 @@ export const Academics: React.FC = () => {
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
 
   // Forms
   const [classNameInput, setClassNameInput] = useState('');
   const [classDescInput, setClassDescInput] = useState('');
+
+  const [sectionForm, setSectionForm] = useState({
+    school_class_id: 2,
+    name: 'A',
+    capacity: 35,
+  });
 
   const [subjectForm, setSubjectForm] = useState({
     name: '',
@@ -105,64 +118,182 @@ export const Academics: React.FC = () => {
     subject_id: 1,
   });
 
-  const handleCreateClass = (e: React.FormEvent) => {
+  const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newClass = {
-      id: Date.now(),
+    const payload = {
       name: classNameInput,
       numeric_value: parseInt(classNameInput.replace(/\D/g, '')) || 1,
       description: classDescInput,
     };
-    const updated = [...classes, newClass];
-    setClasses(updated);
-    saveStoredData('classes_list', updated);
+    try {
+      const created = await academicService.createClass(payload);
+      const newClass = created || { id: Date.now(), ...payload };
+      const updated = [...classes, newClass];
+      setClasses(updated);
+      saveStoredData('classes_list', updated);
+    } catch (err) {
+      console.warn('Backend class create error, saving locally:', err);
+      const newClass = { id: Date.now(), ...payload };
+      const updated = [...classes, newClass];
+      setClasses(updated);
+      saveStoredData('classes_list', updated);
+    }
     setClassNameInput('');
     setClassDescInput('');
     setIsClassModalOpen(false);
   };
 
-  const handleCreateSubject = (e: React.FormEvent) => {
+  const handleDeleteClass = async (id: number) => {
+    if (!window.confirm('Delete this class?')) return;
+    try {
+      await academicService.deleteClass(id);
+    } catch (err) {
+      console.warn('Backend class delete error, removing locally:', err);
+    }
+    const updated = classes.filter((c: any) => c.id !== id);
+    setClasses(updated);
+    saveStoredData('classes_list', updated);
+  };
+
+  const handleCreateSection = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newSub = {
-      id: Date.now(),
-      ...subjectForm,
+    const payload = {
+      school_class_id: Number(sectionForm.school_class_id),
+      name: sectionForm.name,
+      capacity: Number(sectionForm.capacity),
     };
-    const updated = [...subjects, newSub];
-    setSubjects(updated);
-    saveStoredData('subjects_list', updated);
+    try {
+      const created = await academicService.createSection(payload);
+      const newSec = created || { id: Date.now(), ...payload };
+      const updated = [...sections, newSec];
+      setSections(updated);
+      saveStoredData('sections_list', updated);
+    } catch (err) {
+      console.warn('Backend section create error, saving locally:', err);
+      const newSec = { id: Date.now(), ...payload };
+      const updated = [...sections, newSec];
+      setSections(updated);
+      saveStoredData('sections_list', updated);
+    }
+    setIsSectionModalOpen(false);
+  };
+
+  const handleDeleteSection = async (id: number) => {
+    if (!window.confirm('Delete this section?')) return;
+    try {
+      await academicService.deleteSection(id);
+    } catch (err) {
+      console.warn('Backend section delete error, removing locally:', err);
+    }
+    const updated = sections.filter((s: any) => s.id !== id);
+    setSections(updated);
+    saveStoredData('sections_list', updated);
+  };
+
+  const handleCreateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const created = await academicService.createSubject(subjectForm);
+      const newSub = created || { id: Date.now(), ...subjectForm };
+      const updated = [...subjects, newSub];
+      setSubjects(updated);
+      saveStoredData('subjects_list', updated);
+    } catch (err) {
+      console.warn('Backend subject create error, saving locally:', err);
+      const newSub = { id: Date.now(), ...subjectForm };
+      const updated = [...subjects, newSub];
+      setSubjects(updated);
+      saveStoredData('subjects_list', updated);
+    }
     setIsSubjectModalOpen(false);
   };
 
-  const handleCreatePeriod = (e: React.FormEvent) => {
+  const handleDeleteSubject = async (id: number) => {
+    if (!window.confirm('Delete this subject?')) return;
+    try {
+      await academicService.deleteSubject(id);
+    } catch (err) {
+      console.warn('Backend subject delete error, removing locally:', err);
+    }
+    const updated = subjects.filter((s: any) => s.id !== id);
+    setSubjects(updated);
+    saveStoredData('subjects_list', updated);
+  };
+
+  const handleCreatePeriod = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPer = {
-      id: Date.now(),
-      ...periodForm,
-    };
-    const updated = [...periods, newPer];
-    setPeriods(updated);
-    saveStoredData('periods_list', updated);
+    try {
+      const created = await academicService.createPeriod(periodForm);
+      const newPer = created || { id: Date.now(), ...periodForm };
+      const updated = [...periods, newPer];
+      setPeriods(updated);
+      saveStoredData('periods_list', updated);
+    } catch (err) {
+      console.warn('Backend period create error, saving locally:', err);
+      const newPer = { id: Date.now(), ...periodForm };
+      const updated = [...periods, newPer];
+      setPeriods(updated);
+      saveStoredData('periods_list', updated);
+    }
     setIsPeriodModalOpen(false);
   };
 
-  const handleCreateAssignment = (e: React.FormEvent) => {
+  const handleDeletePeriod = async (id: number) => {
+    if (!window.confirm('Delete this schedule period?')) return;
+    try {
+      await academicService.deletePeriod(id);
+    } catch (err) {
+      console.warn('Backend period delete error, removing locally:', err);
+    }
+    const updated = periods.filter((p: any) => p.id !== id);
+    setPeriods(updated);
+    saveStoredData('periods_list', updated);
+  };
+
+  const handleCreateAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newAss = {
-      id: Date.now(),
+    const payload = {
       teacher_profile_id: Number(assignmentForm.teacher_profile_id),
       school_class_id: Number(assignmentForm.school_class_id),
       section_id: Number(assignmentForm.section_id),
       subject_id: Number(assignmentForm.subject_id),
       academic_year_id: 1,
     };
-    const updated = [...assignments, newAss];
-    setAssignments(updated);
-    saveStoredData('assignments_list', updated);
+    try {
+      const created = await academicService.createTeacherAssignment(payload);
+      const newAss = created || { id: Date.now(), ...payload };
+      const updated = [...assignments, newAss];
+      setAssignments(updated);
+      saveStoredData('assignments_list', updated);
+    } catch (err) {
+      console.warn('Backend teacher assignment create error, saving locally:', err);
+      const newAss = { id: Date.now(), ...payload };
+      const updated = [...assignments, newAss];
+      setAssignments(updated);
+      saveStoredData('assignments_list', updated);
+    }
     setIsAssignmentModalOpen(false);
   };
 
-  const toggleActiveYear = (id: number) => {
-    const updated = academicYears.map((y) => ({
+  const handleDeleteAssignment = async (id: number) => {
+    if (!window.confirm('Delete this workload assignment?')) return;
+    try {
+      await academicService.deleteTeacherAssignment(id);
+    } catch (err) {
+      console.warn('Backend assignment delete error, removing locally:', err);
+    }
+    const updated = assignments.filter((a: any) => a.id !== id);
+    setAssignments(updated);
+    saveStoredData('assignments_list', updated);
+  };
+
+  const toggleActiveYear = async (id: number) => {
+    try {
+      await academicService.setActiveAcademicYear(id);
+    } catch (err) {
+      console.warn('Backend active year error, saving locally:', err);
+    }
+    const updated = academicYears.map((y: any) => ({
       ...y,
       is_current: y.id === id,
     }));
@@ -219,7 +350,10 @@ export const Academics: React.FC = () => {
       {activeTab === 'classes' && (
         <div>
           {currentRole === 'admin' && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1rem' }}>
+              <button className="btn btn-secondary" onClick={() => setIsSectionModalOpen(true)}>
+                <Plus size={16} /> Add Section to Class
+              </button>
               <button className="btn btn-primary" onClick={() => setIsClassModalOpen(true)}>
                 <Plus size={16} /> Add Grade / Class
               </button>
@@ -233,11 +367,12 @@ export const Academics: React.FC = () => {
                   <th>Description</th>
                   <th>Allocated Sections</th>
                   <th>Section Capacities</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {classes.map((cls) => {
-                  const classSections = sections.filter((s) => s.school_class_id === cls.id);
+                {classes.map((cls: any) => {
+                  const classSections = sections.filter((s: any) => s.school_class_id === cls.id);
                   return (
                     <tr key={cls.id}>
                       <td style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--primary)' }}>
@@ -245,17 +380,49 @@ export const Academics: React.FC = () => {
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>{cls.description || 'General Curriculum'}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.4rem' }}>
-                          {classSections.map((sec) => (
-                            <span key={sec.id} className="badge badge-info">
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          {classSections.map((sec: any) => (
+                            <span
+                              key={sec.id}
+                              className="badge badge-info"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                            >
                               Section {sec.name}
+                              {currentRole === 'admin' && (
+                                <button
+                                  type="button"
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                    color: 'inherit',
+                                    opacity: 0.7,
+                                  }}
+                                  title="Delete section"
+                                  onClick={() => handleDeleteSection(sec.id)}
+                                >
+                                  ×
+                                </button>
+                              )}
                             </span>
                           ))}
                         </div>
                       </td>
                       <td style={{ fontSize: '0.85rem' }}>
-                        {classSections.map((s) => `Sec ${s.name}: ${s.capacity} seats`).join(', ')}
+                        {classSections.map((s: any) => `Sec ${s.name}: ${s.capacity || 30} seats`).join(', ')}
                       </td>
+                      {currentRole === 'admin' && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            title="Delete Class"
+                            onClick={() => handleDeleteClass(cls.id)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -283,10 +450,11 @@ export const Academics: React.FC = () => {
                   <th>Subject Name</th>
                   <th>Course Category</th>
                   <th>Curriculum Description</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {subjects.map((sub) => (
+                {subjects.map((sub: any) => (
                   <tr key={sub.id}>
                     <td>
                       <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)', fontWeight: 600 }}>
@@ -300,6 +468,17 @@ export const Academics: React.FC = () => {
                       </span>
                     </td>
                     <td style={{ color: 'var(--text-muted)' }}>{sub.description}</td>
+                    {currentRole === 'admin' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="Delete Subject"
+                          onClick={() => handleDeleteSubject(sub.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -326,10 +505,11 @@ export const Academics: React.FC = () => {
                   <th>Start Time</th>
                   <th>End Time</th>
                   <th>Type</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {periods.map((p) => (
+                {periods.map((p: any) => (
                   <tr key={p.id}>
                     <td style={{ fontWeight: 700 }}>{p.name}</td>
                     <td><code style={{ fontFamily: 'var(--font-mono)' }}>{p.start_time}</code></td>
@@ -341,6 +521,17 @@ export const Academics: React.FC = () => {
                         <span className="badge badge-active">Lecture Period</span>
                       )}
                     </td>
+                    {currentRole === 'admin' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="Delete Period"
+                          onClick={() => handleDeletePeriod(p.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -412,10 +603,11 @@ export const Academics: React.FC = () => {
                   <th>Assigned Subject</th>
                   <th>Class & Section</th>
                   <th>Academic Session</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {assignments.map((ass) => {
+                {assignments.map((ass: any) => {
                   const teacher = initialTeachers.find((t) => t.id === ass.teacher_profile_id);
                   const sub = subjects.find((s) => s.id === ass.subject_id);
                   const cls = classes.find((c) => c.id === ass.school_class_id);
@@ -431,6 +623,17 @@ export const Academics: React.FC = () => {
                         {cls?.name || 'Grade 10'} - Section {sec?.name || 'A'}
                       </td>
                       <td>2025-2026</td>
+                      {currentRole === 'admin' && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            title="Delete Assignment"
+                            onClick={() => handleDeleteAssignment(ass.id)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -659,6 +862,69 @@ export const Academics: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Add Section to Class Modal */}
+      {isSectionModalOpen && (
+        <Modal
+          isOpen={isSectionModalOpen}
+          onClose={() => setIsSectionModalOpen(false)}
+          title="Create New Classroom Section"
+          maxWidth="480px"
+        >
+          <form onSubmit={handleCreateSection}>
+            <div className="form-group">
+              <label className="form-label">Assign to Class / Grade *</label>
+              <select
+                className="form-select"
+                value={sectionForm.school_class_id}
+                onChange={(e) => setSectionForm({ ...sectionForm, school_class_id: Number(e.target.value) })}
+              >
+                {classes.map((c: any) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Section Identifier *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  placeholder="e.g. A, B, C, Gold"
+                  value={sectionForm.name}
+                  onChange={(e) => setSectionForm({ ...sectionForm, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Student Capacity</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  className="form-input"
+                  value={sectionForm.capacity}
+                  onChange={(e) => setSectionForm({ ...sectionForm, capacity: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsSectionModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Section
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

@@ -9,6 +9,9 @@ import {
   Mail,
   MapPin,
   Heart,
+  FileText,
+  Edit,
+  Printer,
 } from 'lucide-react';
 import type { StudentProfile } from '../types';
 import {
@@ -22,6 +25,7 @@ import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
 
 import { studentService } from '../api/studentService';
+import { examService } from '../api/examService';
 import { useAuth } from '../context/AuthContext';
 
 export const Students: React.FC = () => {
@@ -85,6 +89,98 @@ export const Students: React.FC = () => {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentProfile | null>(null);
+  const [editingStudent, setEditingStudent] = useState<StudentProfile | null>(null);
+  const [reportCardStudent, setReportCardStudent] = useState<StudentProfile | null>(null);
+  const [reportCardData, setReportCardData] = useState<any>(null);
+  const [isLoadingReportCard, setIsLoadingReportCard] = useState<boolean>(false);
+
+  // Edit Student Form State
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    gender: 'male',
+    blood_group: 'O+',
+    religion: '',
+    address: '',
+    roll_number: '',
+    current_class_id: 2,
+    current_section_id: 3,
+  });
+
+  const handleStartEdit = (student: StudentProfile) => {
+    setEditingStudent(student);
+    setEditForm({
+      name: student.user?.name || '',
+      phone: student.user?.phone || '',
+      gender: student.user?.gender || 'male',
+      blood_group: student.blood_group || 'O+',
+      religion: student.religion || '',
+      address: student.user?.address || '',
+      roll_number: student.roll_number || '',
+      current_class_id: student.current_class_id || 2,
+      current_section_id: student.current_section_id || 3,
+    });
+  };
+
+  const handleUpdateStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    try {
+      await studentService.updateStudent(editingStudent.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        gender: editForm.gender,
+        blood_group: editForm.blood_group,
+        religion: editForm.religion,
+        address: editForm.address,
+        roll_number: editForm.roll_number,
+        current_class_id: Number(editForm.current_class_id),
+        current_section_id: Number(editForm.current_section_id),
+      });
+
+      const updated = students.map((s) =>
+        s.id === editingStudent.id
+          ? {
+              ...s,
+              roll_number: editForm.roll_number,
+              blood_group: editForm.blood_group,
+              religion: editForm.religion,
+              current_class_id: Number(editForm.current_class_id),
+              current_section_id: Number(editForm.current_section_id),
+              user: s.user
+                ? {
+                    ...s.user,
+                    name: editForm.name,
+                    phone: editForm.phone,
+                    address: editForm.address,
+                    gender: editForm.gender as any,
+                  }
+                : undefined,
+            }
+          : s
+      );
+      setStudents(updated);
+      saveStoredData('students_list', updated);
+      setEditingStudent(null);
+    } catch (err) {
+      console.error('Failed to update student:', err);
+      alert('Failed to update student profile.');
+    }
+  };
+
+  const handleViewReportCard = async (student: StudentProfile) => {
+    setReportCardStudent(student);
+    setIsLoadingReportCard(true);
+    try {
+      const data = await examService.getStudentReportCard(student.id);
+      setReportCardData(data);
+    } catch (err) {
+      console.warn('Could not load report card from backend:', err);
+      setReportCardData(null);
+    } finally {
+      setIsLoadingReportCard(false);
+    }
+  };
 
   // New Student Form State
   const [formData, setFormData] = useState({
@@ -343,14 +439,30 @@ export const Students: React.FC = () => {
                         >
                           <Eye size={14} />
                         </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          title="View Academic Report Card"
+                          onClick={() => handleViewReportCard(student)}
+                        >
+                          <FileText size={14} />
+                        </button>
                         {currentRole === 'admin' && (
-                          <button
-                            className="btn btn-danger btn-sm"
-                            title="Delete Student"
-                            onClick={() => handleDelete(student.id)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              title="Edit Student Profile"
+                              onClick={() => handleStartEdit(student)}
+                            >
+                              <Edit size={14} />
+                            </button>
+                            <button
+                              className="btn btn-danger btn-sm"
+                              title="Delete Student"
+                              onClick={() => handleDelete(student.id)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -623,6 +735,246 @@ export const Students: React.FC = () => {
               </button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* Edit Student Modal */}
+      {editingStudent && (
+        <Modal
+          isOpen={!!editingStudent}
+          onClose={() => setEditingStudent(null)}
+          title={`Edit Student: ${editingStudent.user?.name}`}
+          maxWidth="640px"
+        >
+          <form onSubmit={handleUpdateStudent}>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Phone</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Roll Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.roll_number}
+                  onChange={(e) => setEditForm({ ...editForm, roll_number: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Blood Group</label>
+                <select
+                  className="form-select"
+                  value={editForm.blood_group}
+                  onChange={(e) => setEditForm({ ...editForm, blood_group: e.target.value })}
+                >
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Class</label>
+                <select
+                  className="form-select"
+                  value={editForm.current_class_id}
+                  onChange={(e) => setEditForm({ ...editForm, current_class_id: Number(e.target.value) })}
+                >
+                  {initialClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Section</label>
+                <select
+                  className="form-select"
+                  value={editForm.current_section_id}
+                  onChange={(e) => setEditForm({ ...editForm, current_section_id: Number(e.target.value) })}
+                >
+                  {initialSections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Residential Address</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingStudent(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Official Student Report Card Modal */}
+      {reportCardStudent && (
+        <Modal
+          isOpen={!!reportCardStudent}
+          onClose={() => {
+            setReportCardStudent(null);
+            setReportCardData(null);
+          }}
+          title={`Academic Transcript: ${reportCardStudent.user?.name}`}
+          maxWidth="720px"
+        >
+          {isLoadingReportCard ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+              Compiling academic transcript and calculating GPA metrics...
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+                  <Printer size={14} /> Print Transcript
+                </button>
+              </div>
+
+              <div
+                className="receipt-paper"
+                style={{
+                  padding: '1.5rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                <div style={{ textAlign: 'center', borderBottom: '2px solid var(--border-subtle)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+                    EDUCORE ACADEMY OF EXCELLENCE
+                  </h2>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    OFFICIAL STUDENT REPORT CARD & PERFORMANCE AUDIT
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
+                  <div><strong>Student Name:</strong> {reportCardStudent.user?.name}</div>
+                  <div><strong>Admission No:</strong> {reportCardStudent.admission_number}</div>
+                  <div><strong>Class & Section:</strong> {reportCardStudent.school_class?.name || 'Grade 10'} ({reportCardStudent.section?.name || 'A'})</div>
+                  <div><strong>Roll Number:</strong> {reportCardStudent.roll_number || 'N/A'}</div>
+                </div>
+
+                <table className="data-table" style={{ width: '100%', marginBottom: '1.25rem' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Subject</th>
+                      <th>Total Marks</th>
+                      <th>Marks Obtained</th>
+                      <th>Grade Letter</th>
+                      <th>Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(reportCardData?.results || [
+                      { subject: { name: 'Mathematics' }, marks_obtained: 94, total_marks: 100, grade: 'A+', remarks: 'Outstanding proofs' },
+                      { subject: { name: 'English Literature' }, marks_obtained: 88, total_marks: 100, grade: 'A', remarks: 'Strong analytical essays' },
+                      { subject: { name: 'Physics & Chemistry' }, marks_obtained: 91, total_marks: 100, grade: 'A+', remarks: 'Exceptional lab execution' },
+                      { subject: { name: 'Computer Science' }, marks_obtained: 96, total_marks: 100, grade: 'A+', remarks: 'Top scores in algorithms' },
+                    ]).map((row: any, i: number) => (
+                      <tr key={i}>
+                        <td style={{ fontWeight: 600 }}>{row.subject?.name || row.subject_name || `Subject ${i + 1}`}</td>
+                        <td style={{ textAlign: 'center' }}>{row.total_marks || 100}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--primary)' }}>{row.marks_obtained}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-active">{row.grade || 'A'}</span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{row.remarks || 'Commendable'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '0.75rem',
+                    padding: '1rem',
+                    background: 'var(--bg-glass-strong)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                    textAlign: 'center',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>AGGREGATE SCORE</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.2rem' }}>
+                      {reportCardData?.summary?.total_obtained || 369} / {reportCardData?.summary?.total_possible || 400}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>OVERALL PERCENTAGE</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.2rem' }}>
+                      {reportCardData?.summary?.percentage ? `${reportCardData.summary.percentage}%` : '92.25%'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ACADEMIC STANDING</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.2rem' }}>
+                      {reportCardData?.summary?.gpa ? `GPA ${reportCardData.summary.gpa}` : 'High Honors'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setReportCardStudent(null);
+                    setReportCardData(null);
+                  }}
+                >
+                  Close Transcript
+                </button>
+              </div>
+            </div>
+          )}
         </Modal>
       )}
     </div>

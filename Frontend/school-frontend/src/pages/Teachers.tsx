@@ -3,6 +3,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Edit,
 } from 'lucide-react';
 import type { TeacherProfile } from '../types';
 import { initialTeachers, getStoredData, saveStoredData } from '../data/mockData';
@@ -67,6 +68,62 @@ export const Teachers: React.FC = () => {
     salary: 78000,
     bio: 'Dedicated educator focused on experiential learning and student mentorship.',
   });
+
+  const [editingTeacher, setEditingTeacher] = useState<TeacherProfile | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    qualification: '',
+    specialization: '',
+    salary: 75000,
+    bio: '',
+  });
+
+  const handleStartEdit = (teacher: TeacherProfile) => {
+    setEditingTeacher(teacher);
+    setEditForm({
+      name: teacher.user?.name || '',
+      phone: teacher.user?.phone || '',
+      qualification: teacher.qualification || '',
+      specialization: teacher.specialization || '',
+      salary: teacher.salary || 75000,
+      bio: teacher.bio || '',
+    });
+  };
+
+  const handleUpdateTeacher = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTeacher) return;
+    try {
+      await teacherService.updateTeacher(editingTeacher.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        qualification: editForm.qualification,
+        specialization: editForm.specialization,
+        salary: Number(editForm.salary),
+        bio: editForm.bio,
+      });
+
+      const updated = teachers.map((t) =>
+        t.id === editingTeacher.id
+          ? {
+              ...t,
+              qualification: editForm.qualification,
+              specialization: editForm.specialization,
+              salary: Number(editForm.salary),
+              bio: editForm.bio,
+              user: t.user ? { ...t.user, name: editForm.name, phone: editForm.phone } : undefined,
+            }
+          : t
+      );
+      setTeachers(updated);
+      saveStoredData('teachers_list', updated);
+      setEditingTeacher(null);
+    } catch (err) {
+      console.error('Failed to update faculty profile:', err);
+      alert('Failed to update teacher profile.');
+    }
+  };
 
   const handleCreateTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -241,13 +298,22 @@ export const Teachers: React.FC = () => {
                     <StatusBadge status={teacher.user?.status || 'active'} />
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="btn btn-danger btn-sm"
-                      title="Remove Faculty"
-                      onClick={() => handleDelete(teacher.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        title="Edit Faculty Member"
+                        onClick={() => handleStartEdit(teacher)}
+                      >
+                        <Edit size={14} />
+                      </button>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        title="Remove Faculty"
+                        onClick={() => handleDelete(teacher.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -387,6 +453,90 @@ export const Teachers: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Teacher Modal */}
+      {editingTeacher && (
+        <Modal
+          isOpen={!!editingTeacher}
+          onClose={() => setEditingTeacher(null)}
+          title={`Edit Faculty Profile: ${editingTeacher.user?.name}`}
+          maxWidth="640px"
+        >
+          <form onSubmit={handleUpdateTeacher}>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Phone</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Qualification</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.qualification}
+                  onChange={(e) => setEditForm({ ...editForm, qualification: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Specialization / Department</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.specialization}
+                  onChange={(e) => setEditForm({ ...editForm, specialization: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Annual Salary ($)</label>
+              <input
+                type="number"
+                className="form-input"
+                value={editForm.salary}
+                onChange={(e) => setEditForm({ ...editForm, salary: Number(e.target.value) })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Professional Biography & Background</label>
+              <textarea
+                className="form-textarea"
+                rows={3}
+                value={editForm.bio}
+                onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+              />
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1rem 0 0' }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingTeacher(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Update Faculty
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

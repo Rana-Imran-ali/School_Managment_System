@@ -19,22 +19,44 @@ class ExamResultController extends ApiController
     }
 
     /**
-     * Display a listing of exam results.
+     * Display a listing of exam results with strict BOLA/IDOR authorization.
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $query = ExamResult::with(['exam', 'student.user', 'subject']);
 
-        if ($request->filled('exam_id')) {
-            $query->where('exam_id', $request->query('exam_id'));
+        // IDOR Authorization (SEC-01):
+        // Students can only view their own marks.
+        // Parents can only view marks for their registered ward children.
+        // Teachers & Admins can filter by student_id or view full class marks.
+        if ($user->role === 'student') {
+            $studentProfileId = $user->studentProfile?->id ?? 0;
+            if ($request->filled('student_id') && (int) $request->query('student_id') !== $studentProfileId) {
+                return $this->errorResponse('Access denied. You can only view your own examination results.', null, 403);
+            }
+            $query->where('student_profile_id', $studentProfileId);
+        } elseif ($user->role === 'parent') {
+            $childIds = \App\Models\StudentProfile::where('parent_id', $user->parentProfile?->id ?? 0)->pluck('id');
+            if ($request->filled('student_id')) {
+                $requestedId = (int) $request->query('student_id');
+                if (!$childIds->contains($requestedId)) {
+                    return $this->errorResponse('Access denied. You can only view examination results for your registered child.', null, 403);
+                }
+                $query->where('student_profile_id', $requestedId);
+            } else {
+                $query->whereIn('student_profile_id', $childIds);
+            }
+        } elseif ($request->filled('student_id')) {
+            $query->where('student_profile_id', (int) $request->query('student_id'));
         }
 
-        if ($request->filled('student_id')) {
-            $query->where('student_profile_id', $request->query('student_id'));
+        if ($request->filled('exam_id')) {
+            $query->where('exam_id', (int) $request->query('exam_id'));
         }
 
         if ($request->filled('subject_id')) {
-            $query->where('subject_id', $request->query('subject_id'));
+            $query->where('subject_id', (int) $request->query('subject_id'));
         }
 
         return $this->successResponse(

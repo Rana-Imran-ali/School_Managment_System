@@ -82,6 +82,11 @@ export const academicService = {
     return response.data.data;
   },
 
+  async deletePeriod(id: number | string) {
+    const response = await apiClient.delete(`/periods/${id}`);
+    return response.data;
+  },
+
   // Teacher Assignments
   async getTeacherAssignments(params?: { teacher_id?: number; class_id?: number }) {
     const response = await apiClient.get('/teacher-assignments', { params });

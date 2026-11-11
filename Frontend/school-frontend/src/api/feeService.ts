@@ -47,6 +47,16 @@ export const feeService = {
     return response.data.data;
   },
 
+  async deleteFeeType(id: number | string) {
+    const response = await apiClient.delete(`/fee-types/${id}`);
+    return response.data;
+  },
+
+  async deleteFeeStructure(id: number | string) {
+    const response = await apiClient.delete(`/fee-structures/${id}`);
+    return response.data;
+  },
+
   async getStudentFeeLedger(studentId: number) {
     const response = await apiClient.get(`/students/${studentId}/fee-ledger`);
     return response.data.data;

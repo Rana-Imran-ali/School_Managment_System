@@ -250,4 +250,44 @@ class SchoolManagementApiTest extends TestCase
                      ],
                  ]);
     }
+
+    public function test_admin_can_list_all_exam_results(): void
+    {
+        $headers = $this->authenticate();
+
+        $response = $this->withHeaders($headers)->getJson('/api/exam-results');
+
+        $response->assertStatus(200)
+                 ->assertJsonPath('success', true);
+    }
+
+    public function test_student_cannot_access_other_students_exam_results_sec01(): void
+    {
+        // Authenticate as a student
+        $studentUser = \App\Models\User::where('role', 'student')->first();
+        if (!$studentUser) {
+            $studentUser = \App\Models\User::factory()->create([
+                'role'   => 'student',
+                'status' => 'active',
+            ]);
+            \App\Models\StudentProfile::create([
+                'user_id'            => $studentUser->id,
+                'admission_number'   => 'ADM-TEST-99',
+                'current_class_id'   => 1,
+                'current_section_id' => 1,
+            ]);
+        }
+
+        $token = $studentUser->createToken('test-student')->plainTextToken;
+        $headers = [
+            'Authorization' => "Bearer {$token}",
+            'Accept'        => 'application/json',
+        ];
+
+        // Attempt to query an arbitrary/other student ID (e.g. ID 99999)
+        $response = $this->withHeaders($headers)->getJson('/api/exam-results?student_id=99999');
+
+        $response->assertStatus(403)
+                 ->assertJsonPath('success', false);
+    }
 }

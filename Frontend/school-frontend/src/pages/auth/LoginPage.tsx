@@ -3,7 +3,7 @@
  * Public self-registration is disabled. Students, Teachers, and Parents
  * are enrolled exclusively by school administration via email invitations.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   ShieldCheck,
   Info,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
@@ -35,6 +37,19 @@ export const LoginPage: React.FC = () => {
 
   // Destination after authentication
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('app_theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   /* ------------------------------------------------------------------ */
   /*  Handle Sign In                                                    */
@@ -63,6 +78,29 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="login-page" id="login-page">
+      {/* Top right Theme Toggle */}
+      <div style={{ position: 'absolute', top: '1.25rem', right: '1.5rem', zIndex: 10 }}>
+        <button
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: '9999px',
+            padding: '0.55rem',
+            color: 'var(--text-main)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'var(--shadow-sm)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
+      </div>
+
       {/* Floating ambient orbs */}
       <div className="login-bg-orb login-bg-orb-1" />
       <div className="login-bg-orb login-bg-orb-2" />
@@ -227,7 +265,7 @@ export const LoginPage: React.FC = () => {
                 marginTop: '2rem',
                 padding: '0.9rem 1rem',
                 borderRadius: 'var(--radius-md)',
-                background: 'rgba(255, 255, 255, 0.03)',
+                background: 'var(--bg-glass-strong)',
                 border: '1px solid var(--border-subtle)',
                 display: 'flex',
                 gap: '0.75rem',

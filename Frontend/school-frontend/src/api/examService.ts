@@ -11,9 +11,24 @@ export const examService = {
     return response.data.data;
   },
 
+  async deleteExam(id: number | string) {
+    const response = await apiClient.delete(`/exams/${id}`);
+    return response.data;
+  },
+
   async getGrades() {
     const response = await apiClient.get('/grades');
     return response.data.data;
+  },
+
+  async createGrade(data: any) {
+    const response = await apiClient.post('/grades', data);
+    return response.data.data;
+  },
+
+  async deleteGrade(id: number | string) {
+    const response = await apiClient.delete(`/grades/${id}`);
+    return response.data;
   },
 
   async getResults(params: { exam_id?: number; student_id?: number; subject_id?: number } = {}) {

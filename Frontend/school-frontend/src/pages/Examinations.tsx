@@ -8,6 +8,7 @@ import {
   Printer,
   FileCheck,
   CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import type { Exam, Grade, ExamResult } from '../types';
 import {
@@ -74,6 +75,15 @@ export const Examinations: React.FC = () => {
     term: 'First Semester',
   });
 
+  const [isGradeModalOpen, setIsGradeModalOpen] = useState(false);
+  const [gradeForm, setGradeForm] = useState({
+    name: 'A+',
+    mark_from: 90,
+    mark_to: 100,
+    grade_point: 4.0,
+    remarks: 'Outstanding',
+  });
+
   // Marks Entry state
   const [selectedExamId, setSelectedExamId] = useState(1);
   const [selectedSubjectId, setSelectedSubjectId] = useState(1);
@@ -87,6 +97,27 @@ export const Examinations: React.FC = () => {
 
   // Report Card selection
   const [selectedReportStudentId, setSelectedReportStudentId] = useState(1);
+  const [liveReportCard, setLiveReportCard] = useState<any>(null);
+  const [isLoadingReportCard, setIsLoadingReportCard] = useState<boolean>(false);
+
+  // Fetch student report card from backend
+  React.useEffect(() => {
+    if (activeTab === 'report') {
+      setIsLoadingReportCard(true);
+      examService
+        .getStudentReportCard(selectedReportStudentId)
+        .then((data) => {
+          setLiveReportCard(data);
+        })
+        .catch((err) => {
+          console.warn('Backend report card error, using local data:', err);
+          setLiveReportCard(null);
+        })
+        .finally(() => {
+          setIsLoadingReportCard(false);
+        });
+    }
+  }, [selectedReportStudentId, activeTab]);
 
   const calculateGrade = (mark: number): string => {
     const match = grades.find((g: any) => {
@@ -97,25 +128,101 @@ export const Examinations: React.FC = () => {
     return match ? match.name : 'N/A';
   };
 
-  const handleCreateExam = (e: React.FormEvent) => {
+  const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newExam: Exam = {
-      id: Date.now(),
+    const payload = {
       name: examForm.name,
       academic_year_id: 1,
       start_date: examForm.start_date,
       end_date: examForm.end_date,
       term: examForm.term,
     };
-    const updated = [...exams, newExam];
-    setExams(updated);
-    saveStoredData('exams_list', updated);
+    try {
+      const created = await examService.createExam(payload);
+      const newExam: Exam = created || { id: Date.now(), ...payload };
+      const updated = [...exams, newExam];
+      setExams(updated);
+      saveStoredData('exams_list', updated);
+    } catch (err) {
+      console.warn('Backend exam create error, saving locally:', err);
+      const newExam: Exam = { id: Date.now(), ...payload };
+      const updated = [...exams, newExam];
+      setExams(updated);
+      saveStoredData('exams_list', updated);
+    }
     setIsExamModalOpen(false);
   };
 
-  const handleSaveMarks = () => {
-    let updatedResults = [...results];
+  const handleDeleteExam = async (id: number) => {
+    if (!window.confirm('Delete this examination schedule?')) return;
+    try {
+      await examService.deleteExam(id);
+    } catch (err) {
+      console.warn('Backend exam delete error, removing locally:', err);
+    }
+    const updated = exams.filter((e) => e.id !== id);
+    setExams(updated);
+    saveStoredData('exams_list', updated);
+  };
 
+  const handleCreateGrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      name: gradeForm.name,
+      mark_from: Number(gradeForm.mark_from),
+      mark_to: Number(gradeForm.mark_to),
+      grade_point: Number(gradeForm.grade_point),
+      remarks: gradeForm.remarks,
+    };
+    try {
+      const created = await examService.createGrade(payload);
+      const newG = created || { id: Date.now(), ...payload, min_mark: payload.mark_from, max_mark: payload.mark_to };
+      const updated = [...grades, newG];
+      setGrades(updated);
+      saveStoredData('grades_list', updated);
+    } catch (err) {
+      console.warn('Backend grade create error, saving locally:', err);
+      const newG = { id: Date.now(), ...payload, min_mark: payload.mark_from, max_mark: payload.mark_to };
+      const updated = [...grades, newG];
+      setGrades(updated);
+      saveStoredData('grades_list', updated);
+    }
+    setIsGradeModalOpen(false);
+  };
+
+  const handleDeleteGrade = async (id: number) => {
+    if (!window.confirm('Delete this grade scale rubric?')) return;
+    try {
+      await examService.deleteGrade(id);
+    } catch (err) {
+      console.warn('Backend grade delete error, removing locally:', err);
+    }
+    const updated = grades.filter((g) => g.id !== id);
+    setGrades(updated);
+    saveStoredData('grades_list', updated);
+  };
+
+  const handleSaveMarks = async () => {
+    const recordsToCommit = initialStudents
+      .filter((student) => marksState[student.id])
+      .map((student) => ({
+        student_profile_id: student.id,
+        marks_obtained: Number(marksState[student.id].marks) || 0,
+        total_marks: 100,
+        remarks: marksState[student.id].remarks || undefined,
+      }));
+
+    try {
+      await examService.recordResults({
+        exam_id: selectedExamId,
+        subject_id: selectedSubjectId,
+        results: recordsToCommit,
+      });
+    } catch (err) {
+      console.warn('Backend marks record error, saving locally:', err);
+    }
+
+    let updatedResults = [...results];
     initialStudents.forEach((student) => {
       const entry = marksState[student.id];
       if (entry) {
@@ -221,6 +328,7 @@ export const Examinations: React.FC = () => {
                   <th>Commencement Date</th>
                   <th>Conclusion Date</th>
                   <th>Status</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -231,6 +339,17 @@ export const Examinations: React.FC = () => {
                     <td>{exam.start_date}</td>
                     <td>{exam.end_date}</td>
                     <td><span className="badge badge-active">Scheduled</span></td>
+                    {currentRole === 'admin' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="Delete Exam"
+                          onClick={() => handleDeleteExam(exam.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -241,42 +360,63 @@ export const Examinations: React.FC = () => {
 
       {/* TAB 2: Grading Scale */}
       {activeTab === 'grades' && (
-        <div className="glass-panel" style={{ padding: '0.5rem' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Grade Letter</th>
-                <th>Minimum Mark</th>
-                <th>Maximum Mark</th>
-                <th>GPA Point</th>
-                <th>Performance Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grades.map((g) => (
-                <tr key={g.id}>
-                  <td>
-                    <span
-                      style={{
-                        fontSize: '1rem',
-                        fontWeight: 800,
-                        padding: '0.2rem 0.6rem',
-                        borderRadius: 'var(--radius-sm)',
-                        background: 'var(--primary-light)',
-                        color: 'var(--primary)',
-                      }}
-                    >
-                      {g.name}
-                    </span>
-                  </td>
-                  <td><strong>{g.min_mark ?? (g as any).mark_from ?? 0}%</strong></td>
-                  <td><strong>{g.max_mark ?? (g as any).mark_to ?? 100}%</strong></td>
-                  <td><code style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{Number((g.grade_point ?? (g as any).point) ?? 0).toFixed(1)}</code></td>
-                  <td style={{ color: 'var(--text-muted)' }}>{g.description ?? (g as any).remarks ?? ''}</td>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {currentRole === 'admin' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-primary" onClick={() => setIsGradeModalOpen(true)}>
+                <Plus size={16} /> Add Grade Threshold
+              </button>
+            </div>
+          )}
+          <div className="glass-panel" style={{ padding: '0.5rem' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Grade Letter</th>
+                  <th>Minimum Mark</th>
+                  <th>Maximum Mark</th>
+                  <th>GPA Point</th>
+                  <th>Performance Description</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {grades.map((g) => (
+                  <tr key={g.id}>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'var(--primary-light)',
+                          color: 'var(--primary)',
+                        }}
+                      >
+                        {g.name}
+                      </span>
+                    </td>
+                    <td><strong>{g.min_mark ?? (g as any).mark_from ?? 0}%</strong></td>
+                    <td><strong>{g.max_mark ?? (g as any).mark_to ?? 100}%</strong></td>
+                    <td><code style={{ fontSize: '0.85rem' }}>{(g as any).grade_point ?? (g as any).point ?? 4.0}</code></td>
+                    <td style={{ color: 'var(--text-muted)' }}>{(g as any).description || (g as any).remarks || 'Consistent performance'}</td>
+                    {currentRole === 'admin' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="Delete Grade"
+                          onClick={() => handleDeleteGrade(g.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -450,59 +590,70 @@ export const Examinations: React.FC = () => {
           </div>
 
           {/* Printable Report Card Sheet */}
-          <div className="receipt-paper" style={{ maxWidth: '750px', marginTop: '1rem' }}>
-            <div className="receipt-header">
-              <div style={{ fontSize: '0.8rem', letterSpacing: '0.1em', fontWeight: 700, color: '#6366f1' }}>
-                EDUCORE ACADEMY OF EXCELLENCE
-              </div>
-              <h2 className="receipt-title">OFFICIAL STUDENT TRANSCRIPT</h2>
-              <div className="receipt-sub">Academic Session 2025–2026 • Term 1 Evaluation</div>
+          {isLoadingReportCard ? (
+            <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', marginTop: '1rem', color: 'var(--text-muted)' }}>
+              Compiling academic transcript and loading GPA audit from server...
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.88rem', margin: '1rem 0' }}>
-              <div><strong>Student Name:</strong> {reportStudent.user?.name}</div>
-              <div><strong>Roll Number:</strong> {reportStudent.roll_number}</div>
-              <div><strong>Admission No:</strong> {reportStudent.admission_number}</div>
-              <div><strong>Class & Section:</strong> Grade 10 - Section A</div>
-            </div>
-
-            <table className="receipt-details-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left' }}>Subject</th>
-                  <th>Maximum</th>
-                  <th>Obtained</th>
-                  <th>Grade</th>
-                  <th>Remarks</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentResults.map((r) => {
-                  const sub = initialSubjects.find((s) => s.id === r.subject_id);
-                  return (
-                    <tr key={r.id}>
-                      <td style={{ textAlign: 'left', fontWeight: 600 }}>{sub?.name || 'Subject'}</td>
-                      <td>100</td>
-                      <td><strong>{r.marks_obtained}</strong></td>
-                      <td><strong>{r.grade}</strong></td>
-                      <td style={{ fontSize: '0.82rem', color: '#64748b' }}>{r.remarks}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
-              <div>
-                <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Cumulative Grade Average:</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>3.92 GPA (Honors)</div>
+          ) : (
+            <div className="receipt-paper" style={{ maxWidth: '750px', marginTop: '1rem' }}>
+              <div className="receipt-header">
+                <div style={{ fontSize: '0.8rem', letterSpacing: '0.1em', fontWeight: 700, color: '#6366f1' }}>
+                  EDUCORE ACADEMY OF EXCELLENCE
+                </div>
+                <h2 className="receipt-title">OFFICIAL STUDENT TRANSCRIPT</h2>
+                <div className="receipt-sub">Academic Session 2025–2026 • Term 1 Evaluation</div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ borderBottom: '1px solid #334155', width: '160px', marginBottom: '0.35rem' }}></div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Dean of Academics Signature</div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', fontSize: '0.88rem', margin: '1rem 0' }}>
+                <div><strong>Student Name:</strong> {liveReportCard?.student?.name || reportStudent.user?.name}</div>
+                <div><strong>Roll Number:</strong> {liveReportCard?.student?.roll_number || reportStudent.roll_number}</div>
+                <div><strong>Admission No:</strong> {liveReportCard?.student?.admission_number || reportStudent.admission_number}</div>
+                <div><strong>Class & Section:</strong> {liveReportCard?.student?.class_name || 'Grade 10'} ({liveReportCard?.student?.section_name || 'Section A'})</div>
+              </div>
+
+              <table className="receipt-details-table">
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left' }}>Subject</th>
+                    <th>Maximum</th>
+                    <th>Obtained</th>
+                    <th>Grade</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(liveReportCard?.results && liveReportCard.results.length > 0
+                    ? liveReportCard.results
+                    : studentResults
+                  ).map((r: any, i: number) => {
+                    const subName = r.subject?.name || r.subject_name || initialSubjects.find((s) => s.id === r.subject_id)?.name || `Subject ${i + 1}`;
+                    return (
+                      <tr key={r.id || i}>
+                        <td style={{ textAlign: 'left', fontWeight: 600 }}>{subName}</td>
+                        <td>{r.total_marks || 100}</td>
+                        <td><strong>{r.marks_obtained}</strong></td>
+                        <td><strong>{r.grade}</strong></td>
+                        <td style={{ fontSize: '0.82rem', color: '#64748b' }}>{r.remarks || 'Satisfactory'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b' }}>Cumulative Grade Average:</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a' }}>
+                    {liveReportCard?.summary?.gpa ? `GPA ${liveReportCard.summary.gpa} (${liveReportCard.summary.standing || 'Honors'})` : '3.92 GPA (Honors)'}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ borderBottom: '1px solid #334155', width: '160px', marginBottom: '0.35rem' }}></div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Dean of Academics Signature</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -561,6 +712,96 @@ export const Examinations: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Add Grade Scale Threshold Modal */}
+      {isGradeModalOpen && (
+        <Modal
+          isOpen={isGradeModalOpen}
+          onClose={() => setIsGradeModalOpen(false)}
+          title="Create Grade Letter Rubric"
+          maxWidth="500px"
+        >
+          <form onSubmit={handleCreateGrade}>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Grade Letter *</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  placeholder="e.g. A+, B, C"
+                  value={gradeForm.name}
+                  onChange={(e) => setGradeForm({ ...gradeForm, name: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">GPA Point *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  required
+                  className="form-input"
+                  value={gradeForm.grade_point}
+                  onChange={(e) => setGradeForm({ ...gradeForm, grade_point: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Minimum Score (%) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  className="form-input"
+                  value={gradeForm.mark_from}
+                  onChange={(e) => setGradeForm({ ...gradeForm, mark_from: Number(e.target.value) })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Maximum Score (%) *</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  required
+                  className="form-input"
+                  value={gradeForm.mark_to}
+                  onChange={(e) => setGradeForm({ ...gradeForm, mark_to: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Performance Descriptor</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Mastery of subject with high distinction"
+                value={gradeForm.remarks}
+                onChange={(e) => setGradeForm({ ...gradeForm, remarks: e.target.value })}
+              />
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsGradeModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Grade Rubric
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

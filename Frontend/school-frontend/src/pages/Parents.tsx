@@ -7,6 +7,7 @@ import {
   Phone,
   Mail,
   GraduationCap,
+  Edit,
 } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { StatusBadge } from '../components/StatusBadge';
@@ -60,6 +61,56 @@ export const Parents: React.FC = () => {
     address: '',
   });
   const [formError, setFormError] = useState('');
+
+  const [editingParent, setEditingParent] = useState<ParentItem | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    occupation: '',
+    relationship: 'Father',
+    address: '',
+  });
+
+  const handleStartEdit = (parent: ParentItem) => {
+    setEditingParent(parent);
+    setEditForm({
+      name: parent.user?.name || '',
+      phone: parent.user?.phone || '',
+      occupation: parent.occupation || '',
+      relationship: parent.relationship || 'Father',
+      address: parent.user?.address || '',
+    });
+  };
+
+  const handleUpdateParent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParent) return;
+    try {
+      await parentService.updateParent(editingParent.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        occupation: editForm.occupation,
+        relationship: editForm.relationship,
+        address: editForm.address,
+      });
+
+      setParents((prev) =>
+        prev.map((p) =>
+          p.id === editingParent.id
+            ? {
+                ...p,
+                occupation: editForm.occupation,
+                relationship: editForm.relationship,
+                user: p.user ? { ...p.user, name: editForm.name, phone: editForm.phone, address: editForm.address } : undefined,
+              }
+            : p
+        )
+      );
+      setEditingParent(null);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to update guardian.');
+    }
+  };
 
   // Fetch parents list
   const loadParents = async () => {
@@ -274,13 +325,22 @@ export const Parents: React.FC = () => {
                         <Eye size={16} />
                       </button>
                       {currentRole === 'admin' && (
-                        <button
-                          className="btn-icon delete-icon"
-                          title="Delete Guardian"
-                          onClick={() => handleDeleteParent(p.id)}
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <>
+                          <button
+                            className="btn-icon"
+                            title="Edit Guardian"
+                            onClick={() => handleStartEdit(p)}
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            className="btn-icon delete-icon"
+                            title="Delete Guardian"
+                            onClick={() => handleDeleteParent(p.id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>
@@ -512,6 +572,86 @@ export const Parents: React.FC = () => {
               </button>
               <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
                 {isSubmitting ? 'Registering…' : 'Register Guardian'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Edit Guardian Modal */}
+      {editingParent && (
+        <Modal
+          isOpen={!!editingParent}
+          onClose={() => setEditingParent(null)}
+          title={`Edit Guardian: ${editingParent.user?.name}`}
+        >
+          <form onSubmit={handleUpdateParent} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="form-group">
+              <label className="form-label">Full Legal Name *</label>
+              <input
+                type="text"
+                required
+                className="form-input"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Relationship *</label>
+                <select
+                  className="form-select"
+                  value={editForm.relationship}
+                  onChange={(e) => setEditForm({ ...editForm, relationship: e.target.value })}
+                >
+                  <option value="Father">Father</option>
+                  <option value="Mother">Mother</option>
+                  <option value="Guardian">Legal Guardian</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phone Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Occupation</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editForm.occupation}
+                onChange={(e) => setEditForm({ ...editForm, occupation: e.target.value })}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Residential Address</label>
+              <textarea
+                rows={2}
+                className="form-textarea"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setEditingParent(null)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Changes
               </button>
             </div>
           </form>

@@ -9,6 +9,7 @@ import {
   Clock,
   Layers,
   FileSpreadsheet,
+  Trash2,
 } from 'lucide-react';
 import type { FeePayment, FeeStructure, FeeType } from '../types';
 import {
@@ -91,6 +92,15 @@ export const Fees: React.FC = () => {
   // Modals
   const [isCollectModalOpen, setIsCollectModalOpen] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState<FeePayment | null>(null);
+  const [isFeeTypeModalOpen, setIsFeeTypeModalOpen] = useState(false);
+  const [feeTypeForm, setFeeTypeForm] = useState({ name: '', description: '' });
+  const [isFeeStructureModalOpen, setIsFeeStructureModalOpen] = useState(false);
+  const [feeStructureForm, setFeeStructureForm] = useState({
+    fee_type_id: 1,
+    school_class_id: 2,
+    amount: 1500,
+    due_date: '2026-11-30',
+  });
 
   // Collect Payment Form
   const [collectForm, setCollectForm] = useState({
@@ -104,10 +114,9 @@ export const Fees: React.FC = () => {
     remarks: 'Full payment received',
   });
 
-  const handleRecordPayment = (e: React.FormEvent) => {
+  const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newPayment: FeePayment = {
-      id: Date.now(),
+    const payload = {
       student_profile_id: Number(collectForm.student_profile_id),
       fee_type_id: Number(collectForm.fee_type_id),
       amount_paid: Number(collectForm.amount_paid),
@@ -120,10 +129,92 @@ export const Fees: React.FC = () => {
       recorded_by: 1,
     };
 
+    try {
+      await feeService.recordPayment(payload as any);
+    } catch (err) {
+      console.warn('Backend fee payment record error, saving locally:', err);
+    }
+
+    const newPayment: FeePayment = {
+      id: Date.now(),
+      ...payload,
+    };
+
     const updated = [newPayment, ...payments];
     setPayments(updated);
     saveStoredData('fee_payments_list', updated);
     setIsCollectModalOpen(false);
+  };
+
+  const handleCreateFeeType = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const created = await feeService.createFeeType(feeTypeForm);
+      const newType: FeeType = created || { id: Date.now(), ...feeTypeForm };
+      const updated = [...feeTypes, newType];
+      setFeeTypes(updated);
+      saveStoredData('fee_types_list', updated);
+      setIsFeeTypeModalOpen(false);
+      setFeeTypeForm({ name: '', description: '' });
+    } catch (err) {
+      console.warn('Backend fee type create error, saving locally:', err);
+      const newType: FeeType = { id: Date.now(), ...feeTypeForm };
+      const updated = [...feeTypes, newType];
+      setFeeTypes(updated);
+      saveStoredData('fee_types_list', updated);
+      setIsFeeTypeModalOpen(false);
+      setFeeTypeForm({ name: '', description: '' });
+    }
+  };
+
+  const handleDeleteFeeType = async (id: number) => {
+    if (!window.confirm('Delete this fee category?')) return;
+    try {
+      await feeService.deleteFeeType(id);
+    } catch (err) {
+      console.warn('Backend fee type delete error, removing locally:', err);
+    }
+    const updated = feeTypes.filter((t) => t.id !== id);
+    setFeeTypes(updated);
+    saveStoredData('fee_types_list', updated);
+  };
+
+  const handleCreateFeeStructure = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const payload = {
+      fee_type_id: Number(feeStructureForm.fee_type_id),
+      school_class_id: Number(feeStructureForm.school_class_id),
+      academic_year_id: 1,
+      amount: Number(feeStructureForm.amount),
+      due_date: feeStructureForm.due_date,
+    };
+    try {
+      const created = await feeService.createFeeStructure(payload);
+      const newStruct: FeeStructure = created || { id: Date.now(), ...payload };
+      const updated = [...structures, newStruct];
+      setStructures(updated);
+      saveStoredData('fee_structures_list', updated);
+      setIsFeeStructureModalOpen(false);
+    } catch (err) {
+      console.warn('Backend fee structure create error, saving locally:', err);
+      const newStruct: FeeStructure = { id: Date.now(), ...payload };
+      const updated = [...structures, newStruct];
+      setStructures(updated);
+      saveStoredData('fee_structures_list', updated);
+      setIsFeeStructureModalOpen(false);
+    }
+  };
+
+  const handleDeleteFeeStructure = async (id: number) => {
+    if (!window.confirm('Delete this class fee tariff?')) return;
+    try {
+      await feeService.deleteFeeStructure(id);
+    } catch (err) {
+      console.warn('Backend fee structure delete error, removing locally:', err);
+    }
+    const updated = structures.filter((s) => s.id !== id);
+    setStructures(updated);
+    saveStoredData('fee_structures_list', updated);
   };
 
   const totalCollected = payments
@@ -318,35 +409,108 @@ export const Fees: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: Fee Structures */}
+      {/* TAB 2: Fee Structures & Fee Types */}
       {activeTab === 'structures' && (
-        <div className="glass-panel" style={{ padding: '0.5rem' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Grade / Class</th>
-                <th>Fee Category</th>
-                <th>Required Tariff</th>
-                <th>Payment Due Date</th>
-                <th>Academic Session</th>
-              </tr>
-            </thead>
-            <tbody>
-              {structures.map((str) => {
-                const cls = initialClasses.find((c) => c.id === str.school_class_id);
-                const type = feeTypes.find((t) => t.id === str.fee_type_id);
-                return (
-                  <tr key={str.id}>
-                    <td style={{ fontWeight: 700 }}>{cls?.name || 'Grade 10'}</td>
-                    <td>{type?.name || 'Tuition Fee'}</td>
-                    <td><strong style={{ color: 'var(--success)' }}>${str.amount.toFixed(2)}</strong></td>
-                    <td>{str.due_date}</td>
-                    <td>2025-2026</td>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {currentRole === 'admin' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setIsFeeTypeModalOpen(true)}
+              >
+                <Plus size={16} /> Add Fee Category
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => setIsFeeStructureModalOpen(true)}
+              >
+                <Plus size={16} /> Configure Class Tariff
+              </button>
+            </div>
+          )}
+
+          <div className="glass-panel" style={{ padding: '0.5rem' }}>
+            <div className="panel-header" style={{ padding: '0.75rem 1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+                Class-Wise Fee Structure Tariffs
+              </h3>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Grade / Class</th>
+                  <th>Fee Category</th>
+                  <th>Required Tariff</th>
+                  <th>Payment Due Date</th>
+                  <th>Academic Session</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {structures.map((str) => {
+                  const cls = initialClasses.find((c) => c.id === str.school_class_id);
+                  const type = feeTypes.find((t) => t.id === str.fee_type_id);
+                  return (
+                    <tr key={str.id}>
+                      <td style={{ fontWeight: 700 }}>{cls?.name || 'Grade 10'}</td>
+                      <td>{type?.name || 'Tuition Fee'}</td>
+                      <td><strong style={{ color: 'var(--success)' }}>${str.amount.toFixed(2)}</strong></td>
+                      <td>{str.due_date}</td>
+                      <td>2025-2026</td>
+                      {currentRole === 'admin' && (
+                        <td style={{ textAlign: 'right' }}>
+                          <button
+                            className="btn btn-danger btn-sm"
+                            title="Delete Fee Structure"
+                            onClick={() => handleDeleteFeeStructure(str.id)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Configured Fee Categories / Types */}
+          <div className="glass-panel" style={{ padding: '0.5rem' }}>
+            <div className="panel-header" style={{ padding: '0.75rem 1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>
+                Configured Fee Types & Categories
+              </h3>
+            </div>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Category Name</th>
+                  <th>Description</th>
+                  {currentRole === 'admin' && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {feeTypes.map((ft) => (
+                  <tr key={ft.id}>
+                    <td style={{ fontWeight: 600 }}>{ft.name}</td>
+                    <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{ft.description || 'Standard institutional category'}</td>
+                    {currentRole === 'admin' && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="Delete Fee Category"
+                          onClick={() => handleDeleteFeeType(ft.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -648,6 +812,144 @@ export const Fees: React.FC = () => {
               </div>
             );
           })()}
+        </Modal>
+      )}
+
+      {/* Add Fee Category Modal */}
+      {isFeeTypeModalOpen && (
+        <Modal
+          isOpen={isFeeTypeModalOpen}
+          onClose={() => setIsFeeTypeModalOpen(false)}
+          title="Create New Fee Category"
+          maxWidth="500px"
+        >
+          <form onSubmit={handleCreateFeeType}>
+            <div className="form-group">
+              <label className="form-label">Category Name *</label>
+              <input
+                type="text"
+                required
+                className="form-input"
+                placeholder="e.g. Science Lab Fee, Library Dues"
+                value={feeTypeForm.name}
+                onChange={(e) => setFeeTypeForm({ ...feeTypeForm, name: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Description (Optional)</label>
+              <textarea
+                rows={2}
+                className="form-textarea"
+                placeholder="Details regarding fee scope..."
+                value={feeTypeForm.description}
+                onChange={(e) => setFeeTypeForm({ ...feeTypeForm, description: e.target.value })}
+              />
+            </div>
+            <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsFeeTypeModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Fee Category
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Add Fee Structure Tariff Modal */}
+      {isFeeStructureModalOpen && (
+        <Modal
+          isOpen={isFeeStructureModalOpen}
+          onClose={() => setIsFeeStructureModalOpen(false)}
+          title="Configure Class Fee Tariff"
+          maxWidth="520px"
+        >
+          <form onSubmit={handleCreateFeeStructure}>
+            <div className="form-group">
+              <label className="form-label">Fee Category *</label>
+              <select
+                className="form-select"
+                value={feeStructureForm.fee_type_id}
+                onChange={(e) =>
+                  setFeeStructureForm({ ...feeStructureForm, fee_type_id: Number(e.target.value) })
+                }
+              >
+                {feeTypes.map((ft) => (
+                  <option key={ft.id} value={ft.id}>
+                    {ft.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Class Placement *</label>
+                <select
+                  className="form-select"
+                  value={feeStructureForm.school_class_id}
+                  onChange={(e) =>
+                    setFeeStructureForm({
+                      ...feeStructureForm,
+                      school_class_id: Number(e.target.value),
+                    })
+                  }
+                >
+                  {initialClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Tariff Amount ($) *</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="0.01"
+                  className="form-input"
+                  value={feeStructureForm.amount}
+                  onChange={(e) =>
+                    setFeeStructureForm({ ...feeStructureForm, amount: Number(e.target.value) })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Due Date *</label>
+              <input
+                type="date"
+                required
+                className="form-input"
+                value={feeStructureForm.due_date}
+                onChange={(e) =>
+                  setFeeStructureForm({ ...feeStructureForm, due_date: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="modal-footer" style={{ padding: '1rem 0 0', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setIsFeeStructureModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary">
+                Save Fee Tariff
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

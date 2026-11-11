@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Printer } from 'lucide-react';
+import { Plus, Printer, Trash2 } from 'lucide-react';
 import type { TimetableSlot } from '../types';
 import {
   initialTimetable,
@@ -131,6 +131,19 @@ export const Timetable: React.FC = () => {
     window.print();
   };
 
+  const handleDeleteSlot = async (slotId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to remove this timetable slot?')) return;
+    try {
+      await timetableService.deleteTimetable(slotId);
+    } catch (err) {
+      console.warn('Backend timetable slot delete error, removing locally:', err);
+    }
+    const updated = timetable.filter((s) => s.id !== slotId);
+    setTimetable(updated);
+    saveStoredData('timetable_data', updated);
+  };
+
   return (
     <div id="timetable-page">
       <div className="page-header">
@@ -255,8 +268,27 @@ export const Timetable: React.FC = () => {
                 return (
                   <div key={day.key}>
                     {slot && subject ? (
-                      <div className="timetable-slot">
-                        <div className="slot-subject">{subject.name}</div>
+                      <div className="timetable-slot" style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div className="slot-subject">{subject.name}</div>
+                          {currentRole === 'admin' && (
+                            <button
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--danger)',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                borderRadius: '4px',
+                                opacity: 0.75,
+                              }}
+                              title="Remove timetable slot"
+                              onClick={(e) => handleDeleteSlot(slot.id, e)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                         <div className="slot-teacher">{teacher?.user?.name || 'Faculty Staff'}</div>
                         {slot.room_number && <div className="slot-room">{slot.room_number}</div>}
                       </div>

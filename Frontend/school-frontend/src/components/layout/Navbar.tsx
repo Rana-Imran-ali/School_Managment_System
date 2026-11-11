@@ -11,6 +11,8 @@ import {
   GraduationCap,
   Users,
   UserCheck,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { AppNotification } from '../../types';
 import { notificationService } from '../../api/notificationService';
@@ -34,6 +36,19 @@ export const Navbar: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('app_theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -186,6 +201,16 @@ export const Navbar: React.FC = () => {
           {roleInfo.icon}
           <span>{roleInfo.label}</span>
         </div>
+
+        {/* Theme Toggle Button */}
+        <button
+          className="navbar-icon-btn"
+          id="btn-theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+        >
+          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
 
         {/* Interactive Notifications Bell */}
         <div style={{ position: 'relative' }} ref={dropdownRef}>
