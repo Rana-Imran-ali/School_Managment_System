@@ -12,7 +12,6 @@ use App\Models\User;
 use Illuminate\Support\Str;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class AnnouncementController extends ApiController
 {
@@ -44,7 +43,7 @@ class AnnouncementController extends ApiController
     {
         $validated = $request->validated();
         $validated['publish_date'] = $validated['publish_date'] ?? date('Y-m-d');
-        $validated['created_by']   = Auth::id() ?? 1;
+        $validated['created_by']   = $request->user()->id;
 
         $announcement = Announcement::create($validated);
         $announcement->load('author:id,name,role');
@@ -70,7 +69,7 @@ class AnnouncementController extends ApiController
                     $userQuery->where('role', $role);
                 }
             }
-            $targetUsers = $userQuery->where('id', '!=', Auth::id())->take(100)->get();
+            $targetUsers = $userQuery->where('id', '!=', $request->user()->id)->take(100)->get();
             foreach ($targetUsers as $targetUser) {
                 $notif = Notification::create([
                     'user_id' => $targetUser->id,

@@ -89,6 +89,7 @@ class AuthController extends ApiController
         $this->logActivity("User {$user->name} logged out", 'Authentication', $user->id);
 
         return $this->successResponse(null, 'Successfully logged out.');
+        
     }
 
     /**

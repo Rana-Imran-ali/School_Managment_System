@@ -7,7 +7,6 @@ use App\Http\Requests\Attendance\StoreAttendanceRequest;
 use App\Http\Resources\AttendanceResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class AttendanceController extends ApiController
 {
@@ -56,7 +55,7 @@ class AttendanceController extends ApiController
             $validated['date'],
             (int) $validated['school_class_id'],
             isset($validated['section_id']) ? (int) $validated['section_id'] : null,
-            (int) (Auth::id() ?? 1)
+            $request->user()->id
         );
 
         $this->logActivity("Committed attendance for class {$validated['school_class_id']} on {$validated['date']}", 'Attendance');
@@ -80,7 +79,25 @@ class AttendanceController extends ApiController
         ]);
 
         if ($request->filled('student_id')) {
-            $summary = $this->attendanceService->getStudentSummary((int) $request->query('student_id'));
+            $requestedId = (int) $request->query('student_id');
+            $user = $request->user();
+
+            // SEC-03: IDOR guard — scope to ownership
+            if ($user->role === 'student') {
+                $ownId = $user->studentProfile?->id ?? 0;
+                if ($requestedId !== $ownId) {
+                    return $this->errorResponse('Access denied. You can only view your own attendance report.', null, 403);
+                }
+            } elseif ($user->role === 'parent') {
+                $childIds = \App\Models\StudentProfile::where('parent_id', $user->parentProfile?->id ?? 0)
+                    ->pluck('id');
+                if (!$childIds->contains($requestedId)) {
+                    return $this->errorResponse('Access denied. You can only view your registered child\'s attendance report.', null, 403);
+                }
+            }
+            // admin/teacher: unrestricted
+
+            $summary = $this->attendanceService->getStudentSummary($requestedId);
             return $this->successResponse($summary, 'Attendance analytics report generated.');
         }
 

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Teacher;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rules\Password;
 
 class StoreTeacherRequest extends FormRequest
 {
@@ -22,7 +23,7 @@ class StoreTeacherRequest extends FormRequest
         return [
             'name'           => ['required', 'string', 'max:255'],
             'email'          => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password'       => ['nullable', 'string', 'min:6'],
+            'password'       => ['nullable', Password::min(8)->letters()->numbers()],
             'phone'          => ['nullable', 'string', 'max:25'],
             'employee_id'    => ['required', 'string', 'max:50', 'unique:teacher_profiles,employee_id'],
             'qualification'  => ['nullable', 'string', 'max:255'],

@@ -20,7 +20,7 @@ class MessageController extends ApiController
      */
     public function inbox(Request $request): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = $request->user()->id;
         $messages = Message::with('sender:id,name,role')
             ->where('receiver_id', $userId)
             ->latest()
@@ -42,7 +42,7 @@ class MessageController extends ApiController
      */
     public function sent(Request $request): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = $request->user()->id;
         $messages = Message::with('receiver:id,name,role')
             ->where('sender_id', $userId)
             ->latest()
@@ -62,9 +62,9 @@ class MessageController extends ApiController
     /**
      * Retrieve complete conversation thread with a specific contact.
      */
-    public function conversation(int $contactId): JsonResponse
+    public function conversation(int $contactId, Request $request): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = $request->user()->id;
 
         $thread = Message::with(['sender:id,name,role', 'receiver:id,name,role'])
             ->where(function ($q) use ($userId, $contactId) {
@@ -99,7 +99,7 @@ class MessageController extends ApiController
         $validated = $request->validated();
 
         $message = Message::create([
-            'sender_id'   => Auth::id() ?? 1,
+            'sender_id'   => $request->user()->id,
             'receiver_id' => $validated['receiver_id'],
             'subject'     => $validated['subject'] ?? null,
             'message'     => $validated['message'],
